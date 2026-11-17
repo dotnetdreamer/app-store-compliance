@@ -8,6 +8,15 @@ away. Nothing in the app writes this file: it is made here and committed.
   python3 scripts/plain-language.py            write what is new or changed
   python3 scripts/plain-language.py --status   say what is missing or out of date, write nothing
   python3 scripts/plain-language.py --recheck  check the meaning of every entry again
+  python3 scripts/plain-language.py --all      write every entry again, from scratch
+
+It covers the rules, the deadlines, the checklist's boxes, and the names and
+short intros of the checklist's sections and groups.
+
+The words have to be read once and understood: every sentence has 14 words or
+fewer, a title 7 or fewer, several conditions become a short list, and jargon
+("SDK", "runtime", "metadata") only appears in brackets after everyday words.
+The script checks all of that in code and writes again whatever breaks it.
 
 Run it after the playbook's rules, deadlines or checklist change, then commit
 the file. Only entries that are new, or whose playbook words changed since
@@ -50,14 +59,15 @@ RULES_FILE = "data/rejection-patterns.json"
 DEADLINES_FILE = "data/regulatory-deadlines.json"
 CHECKLIST_FILE = "docs/PRE-SUBMISSION-CHECKLIST.md"
 
-KINDS = ("rules", "deadlines", "checklist")
-FIELDS = {"rules": ["title", "problem", "fix"], "deadlines": ["title", "summary"], "checklist": ["text"]}
-BATCH = {"rules": 10, "deadlines": 10, "checklist": 20}
+KINDS = ("rules", "deadlines", "checklist", "sections", "groups")
+FIELDS = {"rules": ["title", "problem", "fix"], "deadlines": ["title", "summary"], "checklist": ["text"], "sections": ["title", "intro"], "groups": ["title"]}
+BATCH = {"rules": 10, "deadlines": 10, "checklist": 15, "sections": 10, "groups": 20}
 AT_ONCE = 4
 ROUNDS = 3
-# The app leaves out a title longer than 120 characters and text longer than 600.
+# The app leaves out a title longer than 120 characters and text longer than 600
+# (its plain.ts). A title here stays well under that; text can use all of it.
 TITLE_MAX = 80
-TEXT_MAX = 420
+TEXT_MAX = 600
 
 # --- reading the playbook the way the app reads it ----------------------------------
 
@@ -175,39 +185,127 @@ def checklist_key(words):
     return hash32(js_trim(JS_WS_RUN.sub(" ", words)).lower())
 
 
-def parse_checklist(source):
-    """The boxes of the checklist as the app reads them: a box counts only under a "##" section."""
+LABEL = re.compile(r"^[A-Z][A-Za-z0-9_-]*(?: [A-Za-z0-9_-]+){0,2}\.$")
+ALWAYS = re.compile(r"never be marked (as )?(not applicable|n/a)", re.IGNORECASE)
+BULLET = re.compile(r"^\s*[-*]\s+(.*)$")
+
+
+def checklist_structure(source):
+    """The checklist as the app's parseChecklist reads it: its boxes, and its sections and groups with their ids.
+
+    A box counts only under a "##" section. A group starts at a "###" heading, or at a
+    line of one to three words ending in a full stop ("Apple.") right before a list.
+    A section's intro source is the raw lines between its heading and its first box
+    or heading, spaces folded: what its plain words are fingerprinted against.
+    """
     lines = markdown_lines(source)
-    boxes, section, group, index = [], None, None, 0
+    boxes, sections = [], []
+    state = {"section": None, "group": None, "paragraph": [], "label": None, "always_next": False, "always": 0, "intro": None}
+
+    def end_intro():
+        if state["section"] is not None and state["intro"] is not None:
+            state["section"]["intro_source"] = js_trim(JS_WS_RUN.sub(" ", "\n".join(state["intro"])))
+        state["intro"] = None
+
+    def start_group(title):
+        section = state["section"]
+        if section is None:
+            return
+        state["group"] = {"id": f"{section['id']}/{hash32(title or '')}", "title": title, "boxes": 0}
+        section["groups"].append(state["group"])
+
+    def flush():
+        joined = js_trim(" ".join(state["paragraph"]))
+        state["paragraph"] = []
+        if not joined:
+            return
+        state["label"] = None
+        if ALWAYS.search(joined):
+            state["always_next"] = True
+        if state["section"] is not None and len(joined) <= 25 and LABEL.match(joined):
+            state["label"] = joined
+
+    index = 0
     while index < len(lines):
         line = lines[index]
         head = HEADING.match(line)
+        box = BOX.match(line)
+        if head or box:
+            end_intro()
+        elif state["intro"] is not None:
+            state["intro"].append(line)
         if head:
-            level, title = len(head.group(1)), head.group(2).strip()
+            flush()
+            state["label"] = None
+            state["always_next"] = False
+            level, title = len(head.group(1)), js_trim(head.group(2))
             if level == 2:
-                section, group = title, None
-            elif level > 2 and section:
-                group = title
+                state["section"] = {"id": hash32(title), "title": title, "intro_source": "", "groups": []}
+                sections.append(state["section"])
+                state["group"] = None
+                state["intro"] = []
+            elif level > 2 and state["section"] is not None:
+                start_group(title)
             index += 1
             continue
-        box = BOX.match(line)
-        if box and section:
+        if box and state["section"] is not None:
+            flush()
+            if state["label"]:
+                start_group(state["label"][:-1])
+                state["label"] = None
             body = box.group(1)
             # Lines indented under a box belong to it.
             while index + 1 < len(lines) and GOES_ON.match(lines[index + 1]) and not NEXT_BOX.match(lines[index + 1]):
                 index += 1
                 body += " " + js_trim(lines[index])
-            boxes.append({"key": checklist_key(body), "text": js_trim(body), "section": section, "group": group})
+            if state["group"] is None:
+                start_group(None)
+            state["group"]["boxes"] += 1
+            boxes.append({"key": checklist_key(body), "text": js_trim(body), "section": state["section"]["title"], "group": state["group"]["title"]})
+            index += 1
+            continue
+        if not js_trim(line):
+            flush()
+            index += 1
+            continue
+        bullet = BULLET.match(line)
+        if state["always_next"] and bullet:
+            flush()
+            state["always"] += 1
+            index += 1
+            continue
+        if state["always_next"] and state["always"] > 0:
+            state["always_next"] = False
+        state["paragraph"].append(re.sub(r"^[-*]\s+", "", js_trim(line)))
         index += 1
-    return boxes
+    flush()
+    end_intro()
+    # As the app does: a group with no boxes, and a section with no groups, are left out.
+    for section in sections:
+        section["groups"] = [group for group in section["groups"] if group["boxes"] > 0]
+    return boxes, [section for section in sections if section["groups"]]
+
+
+def parse_checklist(source):
+    """The boxes of the checklist as the app reads them."""
+    return checklist_structure(source)[0]
+
+
+def read_checklist_structure():
+    path = os.path.join(ROOT, CHECKLIST_FILE)
+    if not os.path.exists(path):
+        return [], []
+    with open(path, encoding="utf-8") as f:
+        return checklist_structure(f.read())
 
 
 def read_checklist():
-    path = os.path.join(ROOT, CHECKLIST_FILE)
-    if not os.path.exists(path):
-        return []
-    with open(path, encoding="utf-8") as f:
-        return parse_checklist(f.read())
+    return read_checklist_structure()[0]
+
+
+def section_fingerprint(section):
+    """What a section's plain words were written from: its title and the lines under it (the app's sectionFingerprint)."""
+    return hash32(section["title"] + "\n" + section["intro_source"])
 
 
 def rule_fingerprint(rule):
@@ -340,77 +438,139 @@ def read_verdict(value):
     return [item.strip() for item in value]
 
 
-BANNED = re.compile(r"\b(ensure[sd]?|ensuring|crucial|robust|leverag\w*|seamless(?:ly)?|navigat\w*|landscape|delve\w*|utili[sz]\w*|comprehensive|in order to)\b", re.IGNORECASE)
-MARKS = re.compile("[–—‘’“”`*#!]|\\]\\(")
+BANNED = re.compile(r"\b(ensure[sd]?|ensuring|crucial|robust|leverag\w*|seamless(?:ly)?|navigat\w*|landscape|delve\w*|utili[sz]\w*|comprehensive|facilitat\w*|in order to)\b", re.IGNORECASE)
+MARKS = re.compile("[\u2013\u2014\u2018\u2019\u201c\u201d`*#!;]|\\]\\(")
+# Words a reader who has never published an app trips on. Allowed only in brackets, after everyday words.
+JARGON = re.compile(r"\b(run ?time|SDKs?|entitlements?|disclosures?|compliance|compliant|metadata|monetization|monetis\w+|monetiz\w+|jurisdictions?|pursuant|respectively|aforementioned|programmatic\w*|endpoints?|deprecat\w+|i\.e\.|e\.g\.)", re.IGNORECASE)
+SENTENCE_WORDS = 14
+TITLE_WORDS = {"rules": 7, "deadlines": 7, "checklist": 7, "sections": 6, "groups": 4}
+TOTAL_WORDS = {"rules": 80, "deadlines": 80, "checklist": 60, "sections": 30, "groups": 4}
+# A rule or a deadline has to keep every condition, date and amount, so it gets more room.
+MAX_LINES = {"rules": 9, "deadlines": 9, "checklist": 7, "sections": 4, "groups": 1}
+
+
+def sentences_of(value):
+    """Each list line, and each sentence of every other line."""
+    for line in value.split("\n"):
+        line = line.strip()
+        if not line:
+            continue
+        if line.startswith("- "):
+            yield line[2:]
+            continue
+        for sentence in re.split(r"(?<=[.?!])\s+", line):
+            if sentence.strip():
+                yield sentence
+
+
+def normalize(value):
+    """Spaces folded within each line, empty lines dropped, line breaks kept (the app reads it so too)."""
+    return "\n".join(line for line in (re.sub(r"[ \t]+", " ", raw).strip() for raw in value.split("\n")) if line)
 
 
 def style_problems(kind, entry):
+    """What breaks the house style, said so the writer can fix it."""
     if not isinstance(entry, dict):
         return ["missing"]
     out = []
     for field in FIELDS[kind]:
-        value = entry.get(field).strip() if isinstance(entry.get(field), str) else ""
+        value = normalize(entry.get(field)) if isinstance(entry.get(field), str) else ""
         if not value:
+            if kind == "sections" and field == "intro":
+                continue
             out.append(f'"{field}" is empty')
             continue
         if MARKS.search(value):
-            out.append(f'"{field}" has a dash, a curly quote, Markdown or an exclamation mark')
+            out.append(f'"{field}" has a dash, a semicolon, a curly quote, Markdown or an exclamation mark')
         word = BANNED.search(value)
         if word:
             out.append(f'"{field}" uses "{word.group(0)}"')
+        if value.count("(") > 2:
+            out.append(f'"{field}" has more than two parts in brackets')
+        jargon = JARGON.search(re.sub(r"\([^)]*\)", "", value))
+        if jargon:
+            out.append(f'"{field}" says "{jargon.group(0)}": use everyday words, with the term in brackets only if a developer needs it')
         if field == "title":
-            if len(value) > TITLE_MAX or len(value.split()) > 10:
-                out.append("the title is too long")
+            if "\n" in value or len(value.split()) > TITLE_WORDS[kind] or len(value) > TITLE_MAX:
+                out.append(f"the title has to be one line of {TITLE_WORDS[kind]} words or fewer")
             if value.endswith("."):
-                out.append("the title ends with a period")
-        elif len(value) > TEXT_MAX:
-            out.append(f'"{field}" is too long')
+                out.append("the title ends with a full stop")
+            continue
+        lines = value.split("\n")
+        if len(lines) > MAX_LINES[kind]:
+            out.append(f'"{field}" has more than {MAX_LINES[kind]} lines')
+        for sentence in sentences_of(value):
+            count = len(sentence.split())
+            if count > SENTENCE_WORDS:
+                out.append(f'"{field}" has a sentence of {count} words ("{sentence[:60]}"): split it, {SENTENCE_WORDS} words at most')
+        total = len(value.replace("- ", " ").split())
+        if total > TOTAL_WORDS[kind]:
+            out.append(f'"{field}" is {total} words: {TOTAL_WORDS[kind]} at most')
+        if len(value) > TEXT_MAX:
+            out.append(f'"{field}" is {len(value)} characters: {TEXT_MAX} at most')
     return out
 
 
 # --- the prompts --------------------------------------------------------------------
 
-WRITE_SYSTEM = """You rewrite parts of the App Store Compliance Playbook in plain English for people who make and publish apps but aren't developers or lawyers: a founder, a designer, a marketer. They read your words in an app that helps them get through App Store and Google Play review, and they act on your words alone.
+WRITE_SYSTEM = """You rewrite parts of the App Store Compliance Playbook for people who make apps but have never read a store rule or a law: a founder, a designer, a marketer. They must understand every line the first time they read it, without reading it twice.
 
 How to write:
-- Everyday words and short sentences. Talk to the reader as "you" and "your app".
-- Say what it means for their app and what to do about it.
-- Shorter words must not mean less. Keep every requirement, condition, exception and limit: words like when, only, unless, if, at the same time, at least, before, after, every, all. Keep every date, deadline, number and amount, and exactly who and where it applies to. If the original hedges ("proposed", "expected"), keep the hedge.
-- Don't add facts, advice, dates or examples the original doesn't have.
-- Leave out legal citations, article numbers and regulation numbers: the app shows the law's name separately. Keep a store guideline number when the original's point depends on it.
-- A technical name the reader has to pass on to a developer stays, in brackets after the plain words: "Apple's privacy file (PrivacyInfo.xcprivacy)". Explain any other jargon in a few words, or leave it out.
-- Sound like a person explaining it across a desk. Contractions are fine.
-- Never use em dashes, en dashes, curly quotes, Markdown, emoji or exclamation marks, and never the words ensure, crucial, robust, leverage, seamless, navigate, landscape, delve, utilize, comprehensive or "in order to".
-- Write dates as day, month, year: 12 September 2027.
-- Titles are in sentence case and don't end with a period.
+- One idea per sentence. Every sentence has 14 words or fewer. Most have fewer than 10.
+- Lead with what to do or what's wrong. No warm-up.
+- When there are several steps, conditions or parts, write one short first line, then a list. Each list line starts with "- " and has 12 words or fewer.
+- Use words a 12-year-old knows. Say "add-on code" not "SDK", "while it runs" not "at runtime", "store page text" not "metadata", "permission from Apple" not "entitlement", "notice" not "disclosure", "making money" not "monetization".
+- A technical name a developer will need may follow in brackets, once per field at most: "Apple's privacy file (PrivacyInfo.xcprivacy)".
+- Talk to the reader as "you" and "your app". Contractions are fine.
+- Keep every condition, exception, date, number and amount, and exactly who it applies to. Put them in the list when one sentence can't hold them.
+- Don't add facts or advice the original doesn't have. Leave out legal citations and article numbers.
+- No semicolons, dashes, curly quotes, emoji, exclamation marks or Markdown. The only allowed formatting is "- " at the start of a list line.
+- Never use: ensure, crucial, robust, leverage, seamless, navigate, landscape, delve, utilize, comprehensive, facilitate, "in order to".
+- Write dates as 12 September 2027.
+- Titles are one line, sentence case, no full stop.
 
-Reply with one JSON object and nothing else."""
+Reply with one JSON object and nothing else. In a JSON string, write a line break as \n."""
 
 KIND_PROMPT = {
     "rules": """Rewrite these rejection rules. For each id, return:
-- "title": what gets the app turned down, at most 8 words.
-- "problem": one or two sentences, at most 45 words: what the reviewer finds and why the store says no.
-- "fix": one or two sentences, at most 45 words: what to change.
+- "title": what gets the app turned down, 7 words or fewer.
+- "problem": what the reviewer finds and why the store says no. One to three short sentences, or a short line and a list.
+- "fix": what to do. One to three short sentences, or a short line and a list.
 
 Example. The original:
-{"id":"ANDROID-QUERY-ALL-PACKAGES","store":"Google Play","title":"QUERY_ALL_PACKAGES without a permitted use case","detection":"QUERY_ALL_PACKAGES declared in AndroidManifest.","fix":"Declare specific packages with a queries element, or qualify for a permitted use case."}
+{"id":"APPLE-PRIVACY-MANIFEST-MISSING","store":"App Store","guideline":"5.1.2","title":"Required reason APIs or third party SDKs without a privacy manifest","detection":"Required reason API usage or a commonly used third party SDK is present but no PrivacyInfo.xcprivacy is bundled, or an SDK lacks its signed manifest. Enforced by Apple at upload since 2024.","fix":"Add a PrivacyInfo.xcprivacy with NSPrivacyAccessedAPITypes and approved reason codes, list NSPrivacyTrackingDomains, and confirm every third party SDK ships its signed manifest."}
 In plain words:
-{"ANDROID-QUERY-ALL-PACKAGES":{"title":"App asks to see every app on the phone","problem":"Your app asks Android for a list of every app installed on the phone (QUERY_ALL_PACKAGES). Google only allows that for a few kinds of apps.","fix":"Have your developer ask only for the apps yours needs to see, or show Google that your app is one of the kinds allowed to ask."}}""",
+{"APPLE-PRIVACY-MANIFEST-MISSING":{"title":"Missing the privacy file Apple asks for","problem":"Your app, or add-on code in it, uses phone features Apple watches.\\nIt has no privacy file saying why.\\nSince 2024, Apple blocks these uploads.","fix":"Ask your developer to add Apple's privacy file (PrivacyInfo.xcprivacy).\\n- Give an approved reason for each feature used.\\n- List any web addresses used for tracking.\\n- Check every add-on ships its own signed file."}}""",
     "deadlines": """Rewrite these deadlines: dates when a new law or store rule starts to apply to apps. For each id, return:
-- "title": what changes for apps, at most 8 words. Not the law's name.
-- "summary": one to three sentences, at most 60 words: who it applies to and what they have to do, with every date the requirement names. The app shows the place, the law's name and the grace period beside your words, so leave those out.
+- "title": what changes for apps, 7 words or fewer. Not the law's name.
+- "summary": who it applies to and what they must do, with every date the requirement names. One to three short sentences, or a short line and a list. The app shows the place, the law's name and the grace period beside it, so leave those out.
 
 Example. The original:
 {"id":"US-IL-BIPA","where":"Illinois (USA State)","law":"Biometric Information Privacy Act (BIPA), 740 ILCS 14","requirement":"Written notice and release before collecting biometric identifiers, public retention schedule, destruction within 3 years, and no sale."}
 In plain words:
-{"US-IL-BIPA":{"title":"Ask before collecting face or fingerprint data","summary":"If your app collects face scans, fingerprints or similar data, tell people in writing and get their consent first. Publish how long you keep it, delete it within 3 years, and never sell it."}}""",
+{"US-IL-BIPA":{"title":"Ask before collecting face or fingerprint data","summary":"If your app collects face scans, fingerprints or similar data:\\n- Tell people in writing and get their OK first.\\n- Publish how long you keep it.\\n- Delete it within 3 years.\\n- Never sell it."}}""",
     "checklist": """Rewrite these checklist boxes: checks to make before sending an app for review. For each id, return:
-- "text": one or two sentences, at most 40 words: the check in plain words, said as something that's true once it's done, like the original. Keep a store guideline number or a date in brackets when the original has one.
+- "text": the check, said as something that's true once it's done. A first line of 14 words or fewer. Add a short list only for details the first line can't hold. Keep a store guideline number or a date in brackets when the original has one.
 
 Example. The original:
 {"id":"a1b2c3d4","section":"Shared (both stores)","group":"Mobile Security and Best Practices","text":"**Secure Storage:** Sensitive items (session tokens, passwords, keys) are stored securely (iOS Keychain or Android EncryptedSharedPreferences/Keystore) and never in plaintext files, plain SharedPreferences, or unencrypted local databases."}
 In plain words:
-{"a1b2c3d4":{"text":"Passwords, login tokens and keys are kept in the phone's secure storage (iOS Keychain, Android Keystore), never in plain files or unprotected databases."}}""",
+{"a1b2c3d4":{"text":"Passwords, logins and keys are stored safely.\\n- Keep them in the phone's secure storage (iOS Keychain, Android Keystore).\\n- Never in plain files or unprotected databases."}}""",
+    "sections": """Rewrite these checklist section headings and the short text under them. The reader sees them inside an app, not as a document. For each id, return:
+- "title": the section's name, 6 words or fewer.
+- "intro": one or two short sentences that help the reader, such as when to skip the section. Use "" when the original text only points to another document or says nothing the reader needs.
+
+Example. The original:
+{"id":"s1","title":"EU specific (legal layer, if the app reaches EU users)","intro":"Passing App Review does not make an app EU-legal. The full hard rules and sources are in the [EU regulatory guide](EU-REGULATORY-2026.md)."}
+In plain words:
+{"s1":{"title":"EU laws","intro":"Only if people in the EU can get your app.\\nPassing App Review doesn't make your app legal in the EU."}}""",
+    "groups": """Rewrite these group names inside checklist sections. For each id, return:
+- "title": the group's name in 1 to 4 everyday words.
+
+Example. The original:
+{"id":"g1","section":"Shared (both stores)","title":"Metadata and listing"}
+In plain words:
+{"g1":{"title":"Your store page"}}""",
 }
 
 CHECK_SYSTEM = """You check plain-English versions of App Store Compliance Playbook entries against the originals. People will act on the plain version alone, so it has to mean the same.
@@ -420,12 +580,12 @@ For each id, list every way the plain version changes the meaning:
 - a date, deadline, number, limit or amount that is missing or different
 - who or where it applies to, missing, wider or narrower
 - anything the original does not say
-Do not list: legal citations, article and regulation numbers left out on purpose, technical names moved into brackets, a store's own name for something, or wording and tone. The app shows a deadline's place, the law's name and its grace period, and a rule's store and guideline, beside the plain words, so do not list those as missing either.
+Do not list: legal citations, article and regulation numbers left out on purpose, technical names moved into brackets, everyday words used for technical terms, a sentence split into short ones or into a list, a store's own name for something, or wording and tone. The app shows a deadline's place, the law's name and its grace period, and a rule's store and guideline, beside the plain words, so do not list those as missing either. A section's text may drop a pointer to another document.
 
 Reply with one JSON object and nothing else: {"<id>": ["what is lost or changed", ...]}, with an empty list for a version that means the same."""
 
 # The fields a plain version stands in for. The place, the law's name, the grace period and the guideline show beside it.
-REPLACED = {"rules": ["title", "detection", "fix"], "deadlines": ["requirement"], "checklist": ["text"]}
+REPLACED = {"rules": ["title", "detection", "fix"], "deadlines": ["requirement"], "checklist": ["text"], "sections": ["title", "intro"], "groups": ["title"]}
 
 
 def write_prompt(kind, jobs, feedback):
@@ -512,7 +672,8 @@ class Run:
     def __init__(self, args):
         self.args = args
         self.existing = self.read_existing()
-        rules, deadlines, boxes = read_rules(), read_deadlines(), read_checklist()
+        rules, deadlines = read_rules(), read_deadlines()
+        boxes, sections = read_checklist_structure()
         stores = {"apple": "App Store", "google": "Google Play", "both": "Both stores", "web": "Websites and web apps"}
         unique_boxes = {}
         for box in boxes:
@@ -524,6 +685,10 @@ class Run:
                            "original": {"where": d["jurisdiction"], "law": d["law"], "requirement": d["requirement"], **({"grace": d["grace"]} if d["grace"] else {})}} for d in deadlines],
             "checklist": [{"kind": "checklist", "id": b["key"], "from": "",
                            "original": {"section": b["section"], **({"group": b["group"]} if b["group"] else {}), "text": b["text"]}} for b in unique_boxes.values()],
+            "sections": [{"kind": "sections", "id": section["id"], "from": section_fingerprint(section),
+                          "original": {"title": section["title"], "intro": section["intro_source"]}} for section in sections],
+            "groups": [{"kind": "groups", "id": group["id"], "from": "",
+                        "original": {"section": section["title"], "title": group["title"]}} for section in sections for group in section["groups"] if group["title"]],
         }
 
     @staticmethod
@@ -536,12 +701,16 @@ class Run:
         return {kind: data.get(kind) if isinstance(data.get(kind), dict) else {} for kind in KINDS}
 
     def fresh(self, job):
+        """The file has a version of this entry written from the playbook's current words."""
+        if self.args.all:
+            return False
         entry = self.existing[job["kind"]].get(job["id"])
         if not isinstance(entry, dict):
             return False
-        if job["kind"] != "checklist" and entry.get("from") != job["from"]:
+        if job["from"] and entry.get("from") != job["from"]:
             return False
-        return all(isinstance(entry.get(field), str) and entry[field] for field in FIELDS[job["kind"]])
+        needed = [field for field in FIELDS[job["kind"]] if not (job["kind"] == "sections" and field == "intro")]
+        return all(isinstance(entry.get(field), str) and entry[field] for field in needed)
 
     def check_meaning(self, jobs, entries):
         """The AI's reading of each version: its problems, [] when the meaning holds, or None when, asked three times, it never answered that entry with a list of sentences."""
@@ -584,14 +753,17 @@ class Run:
                         if problems:
                             feedback[job["id"]] = problems
                         else:
-                            current[job["id"]] = {field: re.sub(r"\s+", " ", reply[job["id"]][field]).strip() for field in FIELDS[kind]}
+                            current[job["id"]] = {field: normalize(reply[job["id"]].get(field) or "") for field in FIELDS[kind]}
                 except Exception as error:  # noqa: BLE001 - the round is tried again
                     say(f"  {kind}: {error}")
             to_check = [job for job in jobs if job["id"] not in kept and job["id"] in current]
             if not to_check:
                 continue
             verdicts = self.check_meaning(to_check, current)
-            feedback = {}
+            # A version that failed the style check was never checked, so its
+            # problems go with it into the next round.
+            checked = {job["id"] for job in to_check}
+            feedback = {job_id: problems for job_id, problems in feedback.items() if job_id not in checked}
             for job in to_check:
                 said = verdicts.get(job["id"])
                 plain = " \n ".join(current[job["id"]].values())
@@ -633,7 +805,10 @@ class Run:
             futures = {pool.submit(self.produce, kind, jobs): kind for kind, jobs in batches}
             for future in concurrent.futures.as_completed(futures):
                 kind = futures[future]
-                kept, missed = future.result()
+                try:
+                    kept, missed = future.result()
+                except Exception as error:  # noqa: BLE001 - one broken batch must not lose the others
+                    kept, missed = {}, {"a batch": [str(error)]}
                 results[kind].update(kept)
                 left += [f"  {kind} {job_id}: left in the playbook's words ({'; '.join(problems)})" for job_id, problems in missed.items()]
                 finished += 1
@@ -659,7 +834,10 @@ class Run:
                     entry = self.existing[kind][job["id"]]
                 if entry is None:
                     continue
-                section[job["id"]] = {"text": entry["text"]} if kind == "checklist" else {"from": job["from"], **{field: entry[field] for field in FIELDS[kind]}}
+                if kind in ("checklist", "groups"):
+                    section[job["id"]] = {field: entry[field] for field in FIELDS[kind]}
+                else:
+                    section[job["id"]] = {"from": job["from"], **{field: entry.get(field, "") for field in FIELDS[kind]}}
                 total += 1
             out[kind] = section
         print(f"{len(left)} left in the playbook's words")
@@ -676,6 +854,7 @@ def main():
     parser = argparse.ArgumentParser(description="Write data/plain-language.json, the playbook in everyday words.")
     parser.add_argument("--status", action="store_true", help="say what is missing or out of date, write nothing")
     parser.add_argument("--recheck", action="store_true", help="check the meaning of every entry in the file again, not only new ones")
+    parser.add_argument("--all", action="store_true", help="write every entry again from scratch, after a change to the style or the prompts")
     parser.add_argument("--only", choices=KINDS, help="one kind only")
     parser.add_argument("--limit", type=int, default=None, help="at most this many entries of each kind, to try the prompt")
     parser.add_argument("--dry-run", action="store_true", help="print the file instead of writing it")

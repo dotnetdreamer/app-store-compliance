@@ -1,6 +1,6 @@
 ---
 name: plain-language
-description: Write or refresh data/plain-language.json, the playbook's rules, deadlines and checklist boxes in everyday words, which Open Screenshot Generator's Store compliance view shows to people who are not developers or lawyers. Use after any change to data/rejection-patterns.json, data/regulatory-deadlines.json or docs/PRE-SUBMISSION-CHECKLIST.md (an upstream sync, a new rule, a moved date), when CI warns that plain-language entries are out of date, or when asked to make the playbook easier to read in the app.
+description: Write or refresh data/plain-language.json, the playbook's rules, deadlines, checklist boxes and checklist headings in everyday words, which Open Screenshot Generator's Store compliance view shows to people who are not developers or lawyers. Use after any change to data/rejection-patterns.json, data/regulatory-deadlines.json or docs/PRE-SUBMISSION-CHECKLIST.md (an upstream sync, a new rule, a moved date), when CI warns that plain-language entries are out of date, or when asked to make the playbook easier to read in the app.
 ---
 
 # Plain words for the playbook
@@ -12,7 +12,7 @@ The app never writes that file. It is made here with `scripts/plain-language.py`
 ## When to run it
 
 - After syncing upstream changes into this fork.
-- After editing a rule, a deadline or a checklist box.
+- After editing a rule, a deadline, a checklist box or a checklist heading.
 - When CI prints "plain-language entries are out of date".
 
 An out-of-date entry breaks nothing. The app shows the playbook's own words for it until the file is written again.
@@ -51,10 +51,16 @@ Shorter words must not mean less, so a plain version is kept only when it passes
 
 A version that fails is written again with the problems named.
 
-To check every entry again, not only new ones, run this. It takes about 30 minutes for the whole playbook, so use it after changing the prompts or the checks:
+To check the meaning of every entry again, not only new ones, run this. It takes about 30 minutes for the whole playbook, so use it after changing the meaning checks:
 
 ```bash
 python3 scripts/plain-language.py --recheck --verbose
+```
+
+To write every entry again from scratch, after changing the style rules or the prompts, run this. It takes about 40 minutes:
+
+```bash
+python3 scripts/plain-language.py --all --verbose
 ```
 
 ## Fixing an entry by hand
@@ -62,7 +68,11 @@ python3 scripts/plain-language.py --recheck --verbose
 You can edit a plain entry yourself:
 
 - Keep its `from` value. It is the fingerprint of the playbook words the entry was written from, and if it changes the app stops showing the entry.
-- Keep the style: everyday words, no em or en dashes, no curly quotes, no Markdown, and a title of at most 10 words with no full stop.
+- Keep the style, which is written for someone who has never read a store rule:
+  - Everyday words. A technical term only in brackets after the everyday words, such as "add-on code (SDK)".
+  - Sentences of 14 words at most. A short first line, then a list if there are several things, each list line starting with `- `.
+  - A title of 7 words at most (a section title 6, a group heading 4), on one line, with no full stop.
+  - No em or en dashes, no semicolons, no curly quotes, no exclamation marks and no Markdown.
 
 `python3 scripts/test-plain-language.py` checks the style.
 

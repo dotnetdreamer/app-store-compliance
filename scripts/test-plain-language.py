@@ -46,6 +46,37 @@ class Fingerprints(unittest.TestCase):
         self.assertEqual(boxes, ["2dddae10", "35b8c0d1", "3ac9ecd7"])
 
 
+class Sections(unittest.TestCase):
+    SAMPLE = ("# Checklist\n\nRead this first.\n\n## Start here. Two checks\n\nThese two stop most rejections.\nSee the [guide](GUIDE.md).\n\n"
+              "- [ ] A working demo account.\n\n### Privacy and data\n\n- [ ] A privacy policy.\n\n## Platform mechanics gate\n\nApple.\n\n"
+              "- [ ] A label box.\n\nCross-cutting.\n- [ ] Another box.\n")
+
+    def test_sections_and_groups_match_the_app(self):
+        _, sections = plain.checklist_structure(self.SAMPLE)
+        self.assertEqual(
+            [(s["id"], s["intro_source"], plain.section_fingerprint(s), [g["id"] for g in s["groups"]]) for s in sections],
+            [
+                ("6a1ff01a", "These two stop most rejections. See the [guide](GUIDE.md).", "d1ffbabe", ["6a1ff01a/811c9dc5", "6a1ff01a/acb13c22"]),
+                ("722b6718", "Apple.", "90ae4c74", ["722b6718/b6779c5f", "722b6718/e2a1620e"]),
+            ],
+        )
+
+
+class Style(unittest.TestCase):
+    def test_short_sentences_and_lists_pass(self):
+        self.assertEqual(plain.style_problems("checklist", {"text": "Passwords and keys are stored safely.\n- Keep them in the phone's secure storage (iOS Keychain).\n- Never in plain files."}), [])
+        self.assertEqual(plain.style_problems("sections", {"title": "Start here", "intro": ""}), [], "a section may need no intro")
+
+    def test_long_sentences_jargon_and_marks_fail(self):
+        long = "Your privacy answers match what your app really collects while it runs including every add-on."
+        self.assertTrue(any("sentence of 15 words" in p for p in plain.style_problems("checklist", {"text": long})))
+        self.assertTrue(any('"SDK"' in p for p in plain.style_problems("checklist", {"text": "Every SDK is declared."})))
+        self.assertEqual(plain.style_problems("checklist", {"text": "Every piece of add-on code (SDK) is declared."}), [], "jargon in brackets is fine")
+        self.assertTrue(plain.style_problems("checklist", {"text": "Do this; then that."}))
+        self.assertTrue(plain.style_problems("rules", {"title": "A title that is far too long to read at once", "problem": "x.", "fix": "y."}))
+        self.assertEqual(plain.normalize("Line  one.\n\n-  item   two\n"), "Line one.\n- item two")
+
+
 class MeaningChecks(unittest.TestCase):
     def amounts(self, value):
         return [f"{number} {unit}" for number, unit in plain.amounts_of(value)]
@@ -99,7 +130,10 @@ class TheFile(unittest.TestCase):
         self.assertIsInstance(data, dict)
         rules = {r["id"]: r for r in plain.read_rules()}
         deadlines = {d["id"]: d for d in plain.read_deadlines()}
-        boxes = {b["key"] for b in plain.read_checklist()}
+        boxes_found, sections_found = plain.read_checklist_structure()
+        boxes = {b["key"] for b in boxes_found}
+        sections = {s["id"]: plain.section_fingerprint(s) for s in sections_found}
+        groups = {g["id"] for s in sections_found for g in s["groups"] if g["title"]}
         stale = []
         for kind in plain.KINDS:
             entries = data.get(kind, {})
@@ -111,6 +145,12 @@ class TheFile(unittest.TestCase):
                         stale.append(f"{kind} {entry_id}")
                 elif kind == "deadlines":
                     if entry_id not in deadlines or entry.get("from") != plain.deadline_fingerprint(deadlines[entry_id]):
+                        stale.append(f"{kind} {entry_id}")
+                elif kind == "sections":
+                    if entry.get("from") != sections.get(entry_id):
+                        stale.append(f"{kind} {entry_id}")
+                elif kind == "groups":
+                    if entry_id not in groups:
                         stale.append(f"{kind} {entry_id}")
                 elif entry_id not in boxes:
                     stale.append(f"{kind} {entry_id}")
