@@ -1,0 +1,1587 @@
+{
+  "version": 1,
+  "about": "The rules, deadlines and checklist boxes of this playbook in everyday words, for people who are not developers or lawyers, written with scripts/plain-language.py and each one checked against its original for meaning. \"from\" is a fingerprint of the original an entry was written from: when the original changes, apps show the original until this file is written again.",
+  "rules": {
+    "ANDROID-ACCESSIBILITY-FONTSCALING": {
+      "from": "0a6c6bb6",
+      "title": "Text ignores the phone's font size setting",
+      "problem": "Your app sets text sizes in a fixed unit (dp). So the text stays the same size when someone makes their phone's font bigger.",
+      "fix": "Have your developer set all text sizes in sp (scale-independent pixels) instead of dp. Then text grows and shrinks with the phone's font setting."
+    },
+    "ANDROID-ACCESSIBILITY-HIGHCONTRAST": {
+      "from": "c7b231c3",
+      "title": "Fixed colors that ignore high contrast settings",
+      "problem": "Your app's colors are typed straight into its screens (hardcoded hex values or Color objects) instead of coming from the app's theme. So the app doesn't change when someone turns on high contrast.",
+      "fix": "Have your developer take colors from the app's theme or color resources. Then the app follows high contrast settings on its own."
+    },
+    "ANDROID-ACCESSIBILITY-SCANNER": {
+      "from": "29353478",
+      "title": "Buttons and tap areas are too small",
+      "problem": "Some buttons or tappable items in your app have a touch area smaller than 48dp because of how their width, height or padding is set (layout_width, layout_height, padding).",
+      "fix": "Give every button and tappable item a touch area of at least 48dp by 48dp. Your developer can do this with padding, minWidth and minHeight."
+    },
+    "ANDROID-ACCESSIBILITY-TALKBACK": {
+      "from": "caafbbc6",
+      "title": "App doesn't work properly with TalkBack screen reader",
+      "problem": "Parts of your app's screens, including graphics, are missing a text label for TalkBack (contentDescription), or have the setting that tells TalkBack what to read (importantForAccessibility) set wrong. That leaves people using TalkBack unable to use your app properly.",
+      "fix": "Have your developer give every image that carries information, and every part of the screen people can tap or use, a clear, meaningful text label (contentDescription). Also set importantForAccessibility correctly everywhere in your app."
+    },
+    "ANDROID-ACCOUNT-DELETION-URL": {
+      "from": "128ec7b9",
+      "title": "Accounts can be made but not deleted",
+      "problem": "Your app lets people create an account, but there's no way to delete it inside the app and no web page where they can ask to delete their data.",
+      "fix": "Add a way to delete the account inside the app. Also add a public web link for data deletion to your listing in Play Console."
+    },
+    "ANDROID-ADVERTISING-ID": {
+      "from": "e2743c96",
+      "title": "Advertising ID used without disclosure or opt-out",
+      "problem": "Your app uses Google's advertising ID (the AD_ID permission, or it reads the ID, called GAID), but your code or privacy policy lacks opt-out support or ways for people to have their data deleted. That goes against Google Play's user data rules.",
+      "fix": "Have your developer declare the advertising ID permission (AD_ID) in the app's settings file (AndroidManifest.xml), and handle people's requests to opt out or have their data deleted, fully in line with Google Play policy."
+    },
+    "ANDROID-DYNAMIC-CODE-LOADING": {
+      "from": "a5a02aff",
+      "title": "App loads new code while it runs",
+      "problem": "The check looks for DexClassLoader, PathClassLoader from a downloaded file, or your app downloading and running code while it runs. If your app targets API 37, every native library it loads with System.load() must be read-only, or Android throws an error (UnsatisfiedLinkError).",
+      "fix": "Put all of your app's code in the package you upload. Anything your server changes later must be data, not code that runs."
+    },
+    "ANDROID-HEALTH-PERMISSIONS": {
+      "from": "bca96b42",
+      "title": "Health data used without Health Connect declaration",
+      "problem": "Your app reads health or fitness data, like steps or heart rate, through Health Connect without declaring it properly or having a separate health privacy policy.",
+      "fix": "Declare the Health Connect permissions, fill in the Health Connect form in Play Console, and keep a separate privacy policy just for health data."
+    },
+    "ANDROID-INSECURE-BACKUP": {
+      "from": "2e06ae76",
+      "title": "Backups can copy login details and databases",
+      "problem": "Your app lets Android back up its data (android:allowBackup is true) with no rules that leave out login details and databases. So that sensitive data can end up in backups.",
+      "fix": "Have your developer turn backups off (allowBackup=\"false\"), or set rules (dataExtractionRules or fullBackupContent) that leave out login details and SQLite databases."
+    },
+    "ANDROID-OVERLAY-TAPJACKING": {
+      "from": "d8f5574c",
+      "title": "App draws on top of other apps",
+      "problem": "Your app asks to draw over other apps (SYSTEM_ALERT_WINDOW). Google sees this as a sign of tapjacking (tricking people into tapping hidden things) and malware, especially alongside an accessibility service (AccessibilityService).",
+      "fix": "Stop misusing overlays. Using an overlay together with an accessibility service is a strong malware signal, and Google acts against it."
+    },
+    "ANDROID-QUERY-ALL-PACKAGES": {
+      "from": "1720235e",
+      "title": "App asks to see every app on the phone",
+      "problem": "Your app asks Android for a list of every app installed on the phone (QUERY_ALL_PACKAGES). Google only allows that for a few kinds of apps.",
+      "fix": "Have your developer ask only for the apps yours needs to see, or show Google that your app is one of the kinds allowed to ask."
+    },
+    "ANDROID-RUNTIME-PERMISSIONS": {
+      "from": "c846eafb",
+      "title": "Asks for sensitive permissions without explaining why",
+      "problem": "Your app asks for access to things like the camera, contacts or storage without checking while it runs or explaining to people why it needs them.",
+      "fix": "Have your developer check each permission while the app is running, show a clear reason if someone says no, and keep the app working smoothly when they do."
+    },
+    "GOOGLE-PHOTO-VIDEO-PERMISSIONS-DECLARATION": {
+      "from": "9fd3eaed",
+      "title": "Asks for all photos without using picker",
+      "problem": "Your app (API 33 or higher) asks for full access to photos or videos (READ_MEDIA_IMAGES, READ_MEDIA_VIDEO) but never uses Android's photo picker. Google only allows this when the picker isn't enough for your app's core features.",
+      "fix": "Use Android's photo picker when people pick a photo or video once. Keep full access only for a core gallery-style feature, and fill in the Photo and Video Permissions declaration in Play Console."
+    },
+    "ANDROID-USER-DATA-DISCLOSURE": {
+      "from": "da44e788",
+      "title": "No clear notice before collecting sensitive data",
+      "problem": "Your app has a permission that reads contacts, text messages, call logs, device accounts or all files, but never tells people or asks their consent. Google requires a prominent notice for these.",
+      "fix": "Show a clear, prominent message in your app before you collect this personal data, and get people's explicit consent."
+    },
+    "APPLE-2.1-CLOUD-NOT-IN-PRODUCTION": {
+      "from": "78207df9",
+      "title": "iCloud setup only exists in test mode",
+      "problem": "Your app uses iCloud or CloudKit, but its data setup (schema and containers) is only in the development environment. So the feature breaks when the reviewer tries the release build.",
+      "fix": "Have your developer deploy the CloudKit schema and containers to production before you submit."
+    },
+    "APPLE-2.1-DEBUG-FEATURES": {
+      "from": "bd7a7a6a",
+      "title": "Test and debug tools left in the app",
+      "problem": "The reviewer finds debug menus, test logins or developer backdoors still visible in the version you submitted, instead of locked away for testing only.",
+      "fix": "Have your developer hide debug and test features behind a debug-only build setting (compile flag) so they never appear in the released app."
+    },
+    "APPLE-2.1-MISSING-DEMO-ACCOUNT": {
+      "from": "634a6825",
+      "title": "Login required but no demo account given",
+      "problem": "Your app has a login, but the review details you submitted don't include a demo account, so the reviewer can't get in to test it.",
+      "fix": "Add a working demo account and a way to test the app live in the Notes for Review field before you submit."
+    },
+    "APPLE-2.1-PLACEHOLDER-CONTENT": {
+      "from": "4c60a327",
+      "title": "Placeholder text or images left in the app",
+      "problem": "The reviewer finds filler like lorem ipsum, TODO, FIXME, placeholder, dummy, test data or example.com in the version you submitted.",
+      "fix": "Replace all placeholder text and images with real content before you submit."
+    },
+    "APPLE-2.1-REVIEW-NOTES-INCOMPLETE": {
+      "from": "f13d1157",
+      "title": "Review notes missing a required section",
+      "problem": "For a new submission, your notes for Apple's reviewer leave out one of six required sections: a screen recording on a real device, what the app does, how to get in with test logins, outside services used, regional differences, and regulated industry documents.",
+      "fix": "Fill in all six sections of your review notes, using the review notes template (templates/REVIEW-NOTES-TEMPLATE.md)."
+    },
+    "APPLE-2.1-STAGING-BACKEND": {
+      "from": "35dac148",
+      "title": "App connects to a test server, not live",
+      "problem": "The release version of your app still points to a test server. Its address contains localhost, 127.0.0.1, staging, dev or ngrok. Apple's reviewer can't properly use an app that isn't connected to your real service.",
+      "fix": "Have your developer point the release version at your live server. Check that the server stays up the whole time Apple is reviewing your app."
+    },
+    "APPLE-2.3-AGE-RATING-2026": {
+      "from": "952b66b5",
+      "title": "New age rating questions not answered",
+      "problem": "Apple added new age rating questions covering 13+, 16+ and 18+. You had to answer them by 31 January 2026 to keep submitting updates, so unanswered apps can't get updates through.",
+      "fix": "Go into App Store Connect and answer the new age rating questions for every one of your apps."
+    },
+    "APPLE-2.3-CROSS-PLATFORM-REFERENCE": {
+      "from": "12c8f4d9",
+      "title": "App mentions Android or other app stores",
+      "problem": "Your app's text or store listing mentions words like Android, Google Play or the name of another app marketplace. Apple doesn't allow references to other platforms or stores.",
+      "fix": "Remove every mention of other platforms and app marketplaces from inside your app and from your store listing."
+    },
+    "APPLE-2.3-FUTURE-FUNCTIONALITY": {
+      "from": "899d6b02",
+      "title": "Listing promises features the app doesn't have",
+      "problem": "Your store listing or app text says things like coming soon or beta, or promises a feature that isn't in this version. Apple wants the listing to match what the app actually does.",
+      "fix": "Describe only what this version of your app does today. Take out coming soon and any promises about future features."
+    },
+    "APPLE-2.3-NEGATIVE-APPLE-SENTIMENT": {
+      "from": "254c0008",
+      "title": "Listing mentions an iOS bug or criticizes Apple",
+      "problem": "Your store listing mentions a bug in iOS or says something negative or insensitive about Apple. Apple won't approve listings like that.",
+      "fix": "Remove anything negative about Apple, and any mention of iOS bugs, from your store listing text."
+    },
+    "APPLE-2.3.4-DEVICE-FRAMES-PREVIEW": {
+      "from": "370e0aed",
+      "title": "Preview video shows the app inside a phone",
+      "problem": "Your app preview video shows your app inside a drawing or picture of a phone, instead of filling the whole screen. Apple wants preview videos to show the app full screen.",
+      "fix": "Record your preview video full screen on the device itself, with no phone frame added around it."
+    },
+    "APPLE-2.4.5-UNUSED-ENTITLEMENTS": {
+      "from": "2020aea1",
+      "title": "App claims special abilities it doesn't use",
+      "problem": "Your app's list of special abilities (the entitlements file) includes some your app doesn't use. Apple asks you to justify any entitlement with no matching feature, which blocks review, and temporary exception entitlements get looked at even more closely.",
+      "fix": "Have your developer remove every entitlement your app doesn't actively use. They should check each one against what the app's code really does."
+    },
+    "APPLE-2.5.1-PRIVATE-API": {
+      "from": "8b24bf86",
+      "title": "App uses hidden or outdated Apple code",
+      "problem": "Your app uses parts of Apple's system that Apple keeps private (private APIs), or older building blocks Apple has retired (deprecated frameworks). Apple doesn't allow either.",
+      "fix": "Have your developer use only the public, documented Apple tools and the current versions of Apple's frameworks."
+    },
+    "APPLE-3.1.1-EXTERNAL-PAYMENT": {
+      "from": "a3cd0701",
+      "title": "Digital items sold outside Apple's payment system",
+      "problem": "Your app sells digital content through a web checkout or another company's payment tool instead of Apple's in-app purchase (StoreKit). Apple requires its own system for digital goods.",
+      "fix": "Sell all digital goods through Apple's in-app purchase (StoreKit), unless your app falls into one of the exempt categories Apple has documented."
+    },
+    "APPLE-3.1.2-MISLEADING-PRICING": {
+      "from": "247c4230",
+      "title": "Monthly price shown bigger than the real charge",
+      "problem": "Your yearly subscription screen shows a small per month price in large type, while the total you actually charge is small. Apple sees that as misleading.",
+      "fix": "Show the amount people will actually be charged at least as clearly and as large as any per month price on the screen."
+    },
+    "APPLE-4.0-SIWA-UX": {
+      "from": "017ec75e",
+      "title": "Sign in with Apple set up wrongly",
+      "problem": "Your app asks for a name or email again after Sign in with Apple gave them, uses a nonstandard button, hides it below other social logins, or refuses Apple's private relay (hidden forwarding) emails. Apple rejects all of these.",
+      "fix": "Use the name and email Apple sends and don't ask again. Use Apple's standard Sign in with Apple button, keep it at least as easy to see as other logins, and accept private relay emails."
+    },
+    "APPLE-4.2-WEB-WRAPPER": {
+      "from": "3308593c",
+      "title": "App is just your website in a frame",
+      "problem": "Your app is mostly one screen that loads your website (a web view), with very little built for the phone itself. Apple turns down apps that add little beyond the website.",
+      "fix": "Give your app something extra: features built for the phone, use of the device's abilities, something useful offline, or content the web version doesn't have."
+    },
+    "APPLE-4.8-SOCIAL-LOGIN-ONLY": {
+      "from": "0406e357",
+      "title": "Social login without Sign in with Apple",
+      "problem": "Your app lets people log in with Facebook, Google or similar, but doesn't offer Sign in with Apple or another login that protects privacy just as well.",
+      "fix": "Add Sign in with Apple, or another login that only collects name and email and lets people use a private email address."
+    },
+    "APPLE-5.1.1-MISSING-PRIVACY-POLICY": {
+      "from": "f19a6096",
+      "title": "No privacy policy",
+      "problem": "There's no privacy policy link in your App Store Connect listing, and nothing inside the app links to one.",
+      "fix": "Put a privacy policy online, add its link in App Store Connect, and make sure people can open it from inside your app."
+    },
+    "APPLE-5.1.1-MISSING-USAGE-DESCRIPTION": {
+      "from": "ece3c8e7",
+      "title": "Sensitive feature used without saying why",
+      "problem": "Your app uses a sensitive part of the phone, but the message explaining why is missing (the matching NSxUsageDescription key in Info.plist). Apple wants a reason for each one.",
+      "fix": "Have your developer add the matching explanation for every sensitive feature your app uses, with a specific reason for each."
+    },
+    "APPLE-5.1.1-NO-ACCOUNT-DELETION": {
+      "from": "16559813",
+      "title": "Users can't delete their account in the app",
+      "problem": "Your app lets people create an account, but there's no way for them to delete it from inside the app.",
+      "fix": "If people can create an account in your app, add a way for them to delete it from inside the app too."
+    },
+    "APPLE-5.1.1-UNNECESSARY-DATA": {
+      "from": "febe0030",
+      "title": "Asking for personal details you don't need",
+      "problem": "Your sign-up or first-run screens require a phone number, gender, marital status, date of birth or home address that isn't essential to your main feature. What counts as needed depends on your app.",
+      "fix": "Make extra personal fields optional. Only require details your main feature directly depends on."
+    },
+    "APPLE-5.1.1-VAGUE-PURPOSE-STRING": {
+      "from": "6e0137ce",
+      "title": "Permission message is empty or too vague",
+      "problem": "The message people see when your app asks for a permission is blank or generic, like 'needs access' or 'required' (an NSxUsageDescription key in Info.plist).",
+      "fix": "For each permission, write a specific message that names the real feature that uses it."
+    },
+    "APPLE-5.1.2-AI-NO-CONSENT-MODAL": {
+      "from": "80d9ba64",
+      "title": "Sending personal data to AI without asking",
+      "problem": "Your app uses an outside AI service and may send it people's personal data without first showing a pop-up that names the AI company.",
+      "fix": "Before any personal data leaves your app, show a pop-up asking permission that names the AI provider and the kinds of data you'll send."
+    },
+    "APPLE-5.1.2-MISSING-ATT": {
+      "from": "a4b35791",
+      "title": "Tracking without Apple's tracking permission prompt",
+      "problem": "Your app includes a tracking or advertising tool, but never shows Apple's tracking permission prompt (ATTrackingManager) and is missing the message explaining why (NSUserTrackingUsageDescription).",
+      "fix": "Show Apple's tracking prompt before any tracking across other apps, and add the tracking explanation message (NSUserTrackingUsageDescription)."
+    },
+    "APPLE-5.2.5-APPLE-DEVICE-IMAGE": {
+      "from": "9318d5e0",
+      "title": "Apple devices or logo in icon or screenshots",
+      "problem": "Your app icon or screenshots show an Apple device or the Apple logo, or suggest that Apple endorses your app. Apple doesn't allow its devices or marks to be used this way.",
+      "fix": "Take any Apple device images and Apple logos or marks out of your app icon and screenshots."
+    },
+    "APPLE-ACCESSIBILITY-COLORCONTRAST": {
+      "from": "eb9c3de6",
+      "title": "Colors ignore dark mode and contrast settings",
+      "problem": "Your app uses fixed custom colors that don't support dark and light mode or high-contrast settings, and doesn't check whether the user turned on darker colors (isDarkerSystemColorsEnabled). Apple wants your app to follow these accessibility settings.",
+      "fix": "Have your developer use dynamic or system colors that adapt on their own, or watch the darker colors setting (isDarkerSystemColorsEnabled) and adjust contrast when it changes."
+    },
+    "APPLE-ACCESSIBILITY-DYNAMICTYPE": {
+      "from": "a2cbff89",
+      "title": "Text doesn't follow the user's text size",
+      "problem": "Your app sets fixed font sizes or styles without the matching scaling tools (preferredFont), or it turns off automatic text resizing (adjustsFontForContentSizeCategory set to false). Either one stops text following the size the user picked in their settings.",
+      "fix": "Have your developer use preferredFont(forTextStyle:) in UIKit and system or relative font styles in SwiftUI, and keep automatic text resizing (adjustsFontForContentSizeCategory) turned on."
+    },
+    "APPLE-ACCESSIBILITY-HAPTICS": {
+      "from": "64053ecc",
+      "title": "Buttons give no vibration feedback when tapped",
+      "problem": "Buttons and other controls in your app don't give the small vibration people feel when they tap something (haptic feedback).",
+      "fix": "Have your developer add haptic feedback to buttons, switches and swipe actions (UIImpactFeedbackGenerator or selection feedback)."
+    },
+    "APPLE-ACCESSIBILITY-KEYBOARD": {
+      "from": "89ae97ea",
+      "title": "App can't be used with a physical keyboard",
+      "problem": "Custom text editors or more complex screens in your app can't be moved through with a physical keyboard, because they're missing keyboard shortcuts and focus handling (keyCommands, focusState or focusable).",
+      "fix": "Have your developer add physical keyboard support: keyCommands in UIKit, or focusable() and @FocusState in SwiftUI."
+    },
+    "APPLE-ACCESSIBILITY-REDUCEMOTION": {
+      "from": "75272def",
+      "title": "Animations ignore the Reduce Motion setting",
+      "problem": "Your app plays custom animations and transitions without checking whether the person has turned on Reduce Motion in their settings (isReduceMotionEnabled or accessibilityReduceMotion).",
+      "fix": "Check whether Reduce Motion is on. If it is, turn off or simplify any animations that aren't needed."
+    },
+    "APPLE-ACCESSIBILITY-VOICEOVER": {
+      "from": "3540bd9a",
+      "title": "Screen reader support missing or incomplete",
+      "problem": "Parts of your app people can tap or interact with, or images, have no accessibility details set (accessibilityLabel, accessibilityIdentifier, isAccessibilityElement or accessibilityElement(children:)). So VoiceOver, Apple's screen reader, can't describe them properly.",
+      "fix": "Have your developer give every interactive part of your app, and every decorative or informative image, the right accessibility labels, hints and traits."
+    },
+    "APPLE-ACCOUNT-DELETION-WEAK": {
+      "from": "6649ec9a",
+      "title": "Account deletion only by email or deactivation",
+      "problem": "The only way to remove an account is an email link, a web form outside the app, or a deactivate option that doesn't actually delete it. Apple requires real deletion inside the app.",
+      "fix": "Let people delete their account and its data right inside your app. A deactivate option or an outside form doesn't count."
+    },
+    "APPLE-EXPORT-COMPLIANCE-MISSING": {
+      "from": "267c06b2",
+      "title": "Missing encryption answer stalls every build",
+      "problem": "Your app's settings file (Info.plist) doesn't say whether it uses encryption (ITSAppUsesNonExemptEncryption). So every build gets stuck at Missing Compliance and never reaches review.",
+      "fix": "Have your developer set the encryption answer (ITSAppUsesNonExemptEncryption) in Info.plist. If your app only uses standard HTTPS, the exempt answer applies."
+    },
+    "APPLE-GAMBLING-BRAZIL-LICENSE": {
+      "from": "acc798ff",
+      "title": "No Brazilian betting license for gambling app",
+      "problem": "Your app has gambling or betting features and is offered in Brazil, but your App Review Information doesn't include a valid fixed-odds betting license from Brazil's Secretariat of Prizes and Bets (SPA).",
+      "fix": "Answer Yes to the age rating gambling question (this sets Brazil's rating to A18), add a valid SPA fixed-odds betting license in App Review Information, then submit a new app version. Apple said on 8 May 2026 that only a new version starts verification."
+    },
+    "APPLE-PRIVACY-MANIFEST-MISSING": {
+      "from": "749b6e4d",
+      "title": "App is missing Apple's privacy file",
+      "problem": "Your app uses phone features Apple wants a reason for, or common third party code (SDKs), but has no privacy file (PrivacyInfo.xcprivacy), or an SDK lacks its signed one. Apple has enforced this at upload since 2024.",
+      "fix": "Have your developer add the privacy file listing those features with Apple's approved reasons (NSPrivacyAccessedAPITypes) and your tracking domains (NSPrivacyTrackingDomains), and check that every SDK comes with its signed privacy file."
+    },
+    "APPLE-PRIVACY-NUTRITION-LABELS": {
+      "from": "2669ad75",
+      "title": "Missing privacy labels for the data you collect",
+      "problem": "Your app collects sensitive data about people, such as email, phone number, name or location, but doesn't declare it in its privacy file or point to matching privacy labels (Privacy Nutrition Labels).",
+      "fix": "Have your developer list the data types in Apple's privacy file (PrivacyInfo.xcprivacy, under NSPrivacyCollectedDataTypes). Then fill in the matching privacy labels in App Store Connect."
+    },
+    "APPLE-RESTORE-PURCHASES-MISSING": {
+      "from": "3eeb41f2",
+      "title": "No Restore Purchases button for one-time purchases",
+      "problem": "Your app sells things through Apple's in-app purchase system (StoreKit), but there's no way in the app to restore them. Apple requires one for one-time purchases that never run out and for subscriptions that don't renew on their own.",
+      "fix": "Add a Restore Purchases button or link that people can easily see. You need it whenever you sell one-time purchases that never run out or subscriptions that don't renew on their own."
+    },
+    "BOTH-AI-GENERATED-CONTENT": {
+      "from": "09a1a7c0",
+      "title": "AI-generated content without safeguards",
+      "problem": "Your app uses generative AI or image generation but has no content filtering, reporting, blocking, age rating or abuse safeguards. Apple treats AI output like user posts and Google has its own AI content policy. Since 16 October 2026 Apple names AI content creation apps.",
+      "fix": "Add moderation, reporting, blocking, an accurate age rating and abuse safeguards. Stop your AI from making explicit content, deepfakes, face swaps, undressing images or nonconsensual intimate images, and remove any that get through."
+    },
+    "BOTH-E-EVIDENCE-COMPLIANCE-MISSING": {
+      "from": "4c1a8837",
+      "title": "No EU legal representative or data order process",
+      "problem": "Your app handles user data in the EU but has no legal representative there, or no process for answering European Production and Preservation Orders (EU requests to hand over or keep data) within 10 days, or 8 hours in emergencies.",
+      "fix": "Name a business location you have in the EU or appoint a legal representative there, and send their contact details by 18 August 2026. Set up a secure way to hand over user data within 8 hours in emergencies."
+    },
+    "BOTH-FINGERPRINTING": {
+      "from": "ce1c81d0",
+      "title": "Fingerprinting devices to track people",
+      "problem": "Your app builds a lasting ID for each device from its hardware or settings so it can recognize people. Apple bans this even when the user has agreed to tracking.",
+      "fix": "Remove the fingerprinting. If you really need tracking, use the phone's built-in advertising ID, and only after the user agrees."
+    },
+    "BOTH-GPSR-COMPLIANCE-MISSING": {
+      "from": "94284a03",
+      "title": "Missing EU manufacturer contact and safety warnings",
+      "problem": "Your app has a shop or product listings but doesn't show the manufacturer's email, postal address or product safety warnings. EU product safety law requires this information.",
+      "fix": "For any consumer goods distributed in the EU, show the manufacturer's email and postal address prominently, plus any safety warnings that apply, right on the product listing or in your app."
+    },
+    "BOTH-LOOTBOX-ODDS": {
+      "from": "83278b3f",
+      "title": "Paid random rewards without showing the odds",
+      "problem": "Your app sells loot boxes, gacha or other random rewards without showing the odds before people pay. Both stores require the odds up front.",
+      "fix": "Show the odds for every random reward before the person buys."
+    },
+    "BOTH-METADATA-DECORATION": {
+      "from": "3ed62e81",
+      "title": "App name too long or breaks listing rules",
+      "problem": "Your app name is over the 30 character limit on either store, or your title uses emoji or all caps, or the title or icon makes claims like number one, best, top or free.",
+      "fix": "Keep every listing field within its limit, and take emoji, all caps and ranking or price claims out of your title and icon."
+    },
+    "BOTH-SDK-SUPPLY-CHAIN": {
+      "from": "54c32887",
+      "title": "Third party code breaks rules for you",
+      "problem": "A ready-made code package from another company (SDK) in your app asks for permissions, tracks users or does things your app doesn't declare. You're responsible for what that code does.",
+      "fix": "Check every SDK your app uses, including ones already in it, and keep them up to date. Remove any that collect or share data your app doesn't declare."
+    },
+    "BOTH-SECURE-STORAGE": {
+      "from": "cf345004",
+      "title": "Login details saved without encryption",
+      "problem": "Your app saves login sessions or access tokens in plain, unencrypted storage on the phone (plist, UserDefaults or SharedPreferences). Both stores treat that as a data security risk.",
+      "fix": "Have your developer keep all sensitive data and access tokens in the phone's secure storage: the iOS Keychain, or Android's encrypted storage (EncryptedSharedPreferences)."
+    },
+    "BOTH-SUBSCRIPTION-HARD-CANCEL": {
+      "from": "5b35bcf6",
+      "title": "Cancelling takes a call, letter or visit",
+      "problem": "Your subscription is billed outside Apple or Google billing, yet cancelling means a call, letter or visit. A federal click-to-cancel rule was struck down in 2025, but California, New York and Massachusetts laws apply, and the FTC can still act.",
+      "fix": "Give people a way to cancel on their own, with an in-app button or an account settings web page, that's at least as easy as signing up. Never make them call, mail a letter or visit in person."
+    },
+    "BOTH-UNREACHABLE-METADATA-URL": {
+      "from": "385b8f33",
+      "title": "A link in your store listing is broken",
+      "problem": "The reviewer opens the support, marketing or privacy policy link in your store listing and the page doesn't load.",
+      "fix": "Check that every link in your listing is public and keeps loading for the whole time your app is in review."
+    },
+    "BOTH-UNSAFE-DEEPLINK": {
+      "from": "fb165a0c",
+      "title": "Unchecked app links used for sensitive actions",
+      "problem": "Your app relies on its own custom link types (custom URL schemes) to send people to places in the app or pass tokens for sensitive actions, without strictly checking what the link contains. The stores treat this as unsafe.",
+      "fix": "Have your developer switch to links tied to your own website (Universal Links on iOS, App Links on Android), which are checked against your domain. Also check and clean every value that comes in through a link."
+    },
+    "BOTH-WITHDRAWAL-BUTTON-MISSING": {
+      "from": "1962a5a3",
+      "title": "No easy withdrawal button for EU customers",
+      "problem": "Your app sells digital subscriptions or other online contracts to people in the EU but has no clear, easy-to-find withdrawal button or function. EU law requires one so people can back out within 14 days.",
+      "fix": "Add a clear, dedicated withdrawal button or function that's easy to find in your app, so people can cancel or withdraw without hassle."
+    },
+    "CHINA-AI-REFERENCES": {
+      "from": "58df5ef2",
+      "title": "Mentions of outside AI services in China",
+      "problem": "Your app is offered in the China App Store and mentions ChatGPT, Gemini, OpenAI or similar outside AI services. That can get it rejected for that region. This is checked by hand.",
+      "fix": "Remove those AI service mentions from the China version of your app, or change them to suit that market."
+    },
+    "FLUTTER-PRIVACY-MANIFEST-MISSING": {
+      "from": "e35f8f81",
+      "title": "Flutter app missing Apple's privacy file",
+      "problem": "Your Flutter app uses plugins that touch features Apple wants a reason for (required-reason APIs), like permission_handler, image_picker, geolocator, device_info_plus, package_info_plus, shared_preferences, sqflite or firebase plugins, but there's no privacy file (PrivacyInfo.xcprivacy) anywhere in the project.",
+      "fix": "Have your developer add an app-level privacy file and check each plugin includes its own (most Flutter 3.19+ plugins do). If a plugin's file is missing, Apple only sees that plugin's reason if your app's file lists it."
+    },
+    "GOOGLE-12-TESTER-RULE": {
+      "from": "e08797ac",
+      "title": "New personal account skipped the closed test",
+      "problem": "New personal developer accounts must run a closed test with at least 12 testers for 14 days in a row before going live. This is checked by hand.",
+      "fix": "Run a closed test with at least 12 testers for 14 days in a row, or use an organization account if that fits your situation."
+    },
+    "GOOGLE-DATASAFETY-MISMATCH": {
+      "from": "99dd2f9d",
+      "title": "Data Safety form doesn't match your app",
+      "problem": "Your app includes analytics, ads or tracking tools (SDKs) that collect or share data you didn't list in the Data Safety section. This is Google's number one reason for rejecting apps.",
+      "fix": "Check every SDK and every way your app handles data, then fill in the Data Safety form accurately: all data you collect, all data you share, and how you protect it."
+    },
+    "GOOGLE-FAMILIES-AD-SDK": {
+      "from": "57c58085",
+      "title": "Kids app uses an unapproved ad tool",
+      "problem": "Your app is set up for children but uses an ad tool (SDK) that isn't Families certified, or shows minors ads based on their behavior.",
+      "fix": "Use only Families certified ad tools, and stop showing minors ads based on their behavior."
+    },
+    "GOOGLE-MISLEADING-LISTING": {
+      "from": "6a0d02e0",
+      "title": "Store listing promises features the app lacks",
+      "problem": "A reviewer checks your store listing, screenshots and description against the app itself. If the listing claims something the app doesn't actually do, Google turns it down.",
+      "fix": "Make your listing match the app you submit exactly. Use screenshots of real screens from inside the app."
+    },
+    "GOOGLE-MISSING-PRIVACY-POLICY": {
+      "from": "3e1e7176",
+      "title": "No privacy policy link in your listing",
+      "problem": "Your app collects information from people, but there's no privacy policy link in your Play Console store listing. Google requires one for apps that collect user data.",
+      "fix": "Publish a privacy policy online, then add its link to your store listing in Play Console."
+    },
+    "GOOGLE-PERM-ACCESSIBILITY-MISUSE": {
+      "from": "09d29088",
+      "title": "Accessibility features used for something else",
+      "problem": "Your app asks to use Android's accessibility features (BIND_ACCESSIBILITY_SERVICE), but it isn't an accessibility tool. Google only allows these features for real accessibility uses.",
+      "fix": "Have your developer use these features only for real accessibility features, and declare that use to Google. Otherwise, remove the accessibility service from the app."
+    },
+    "GOOGLE-PERM-ALL-FILES": {
+      "from": "c2cf286e",
+      "title": "All files access without a qualifying use",
+      "problem": "Your app asks Android for access to all files on the phone (MANAGE_EXTERNAL_STORAGE). Google only allows that for certain uses that qualify. Having a reason isn't enough if it isn't one of them.",
+      "fix": "Have your developer use Android's limited file access (scoped storage) instead. Only ask for access to all files if your app has a qualifying use, and then send Google the declaration it requires."
+    },
+    "GOOGLE-PERM-BACKGROUND-LOCATION": {
+      "from": "84722ad8",
+      "title": "Background location without a core feature or notice",
+      "problem": "Your app asks to use the phone's location when it isn't open (ACCESS_BACKGROUND_LOCATION), but there's no clear core feature that needs it or no prominent disclosure. Google won't allow that.",
+      "fix": "Use location only while your app is open where you can. If you need it in the background, show it's for a core feature, add a prominent in-app notice telling people about it, and fill in Google's permission declaration."
+    },
+    "GOOGLE-PERM-SMS-CALLLOG": {
+      "from": "7025f67e",
+      "title": "App uses texts or call history without approval",
+      "problem": "Your app asks to read, send or receive texts, or read or change call history (READ_SMS, SEND_SMS, RECEIVE_SMS, READ_CALL_LOG, WRITE_CALL_LOG), without an approved core use. From 26 August 2026, verifying accounts by phone call no longer counts for READ_CALL_LOG.",
+      "fix": "Fill in Google's permissions declaration form for an approved core use, or remove the permission. If you verify accounts by phone call, have your developer use the Digital Credentials API or the SMS Retriever API instead."
+    },
+    "GOOGLE-PLAY-AGE-SIGNALS-MISUSE": {
+      "from": "878de0e1",
+      "title": "Age check data used for ads or tracking",
+      "problem": "Your app uses Google's age check tool (Play Age Signals API) alongside advertising, marketing, profiling or analytics tools. Google's terms strictly forbid using it that way.",
+      "fix": "Use what the age check tells you only to show age-appropriate content and experiences, in line with the law. Never use it for advertising, marketing, building profiles of people or analytics."
+    },
+    "GOOGLE-PLAY-BILLING": {
+      "from": "900ca489",
+      "title": "Digital items sold without Google Play's billing",
+      "problem": "Your app sells digital items inside the app through a web checkout or another payment service instead of Google Play's billing system (Play Billing). Google requires its own system for these.",
+      "fix": "Have your developer switch these purchases to Play Billing. Other payment options are only allowed in regions where Google permits them."
+    },
+    "GOOGLE-TARGET-API": {
+      "from": "83603762",
+      "title": "App built for an old Android version",
+      "problem": "Your app is built for an older Android version (targetSdkVersion) than Google Play requires, so it's rejected automatically. From 31 August 2026, new apps and updates must target Android 16 (API level 36) or higher.",
+      "fix": "Have your developer update the target to API 36 or higher. You can get an extension to 1 November 2026 in Play Console. Wear OS and Automotive OS need API 35 or higher, TV and XR 34 or higher."
+    },
+    "GOOGLE-PLAY-BILLING-V8-REQUIRED": {
+      "from": "62e85c58",
+      "title": "Google's payment tools older than version 8",
+      "problem": "Your app uses a version of Google's payment tools (Play Billing Library) older than 8. From 31 August 2026, new apps and updates must use version 8 or later.",
+      "fix": "Have your developer upgrade to version 8 (com.android.billingclient:billing 8.x), or request the Play Console extension before 1 November 2026. App versions already live on version 7 keep taking payments until the 2027 deadline for all apps."
+    },
+    "IONIC-4.2-THIN-WRAPPER": {
+      "from": "92533c27",
+      "title": "App is mostly a website in a wrapper",
+      "problem": "Your app is a web wrapper (Capacitor, Cordova or WKWebView) with fewer than 2 native features, such as push or haptics (small vibrations), so Apple may see a repackaged website (guideline 4.2). It's a rough check, so review it by hand before treating it as a blocker.",
+      "fix": "This is the most common reason Ionic apps get turned down. Have your developer add native plugins for the status bar, splash screen transition, push notifications and haptics, or publish it as an installable web app (PWA), which skips App Review."
+    },
+    "IONIC-PRIVACY-MANIFEST-MISSING": {
+      "from": "498b5111",
+      "title": "Missing Apple privacy file for app plugins",
+      "problem": "Your app uses add-ons (Capacitor or Cordova plugins), but there's no Apple privacy file (PrivacyInfo.xcprivacy) anywhere in your project. Apple wants this file to explain how your app uses people's data.",
+      "fix": "Add a privacy file for your app as a whole. Then check that every plugin that wraps a native phone feature, like camera, location or ads, includes its own, since Capacitor plugins don't always."
+    },
+    "IONIC-UIWEBVIEW-DEPRECATED": {
+      "from": "5a6310b9",
+      "title": "App still contains Apple's retired web viewer",
+      "problem": "Your app's code still includes UIWebView, an old web viewer Apple has retired, often pulled in by an outdated Capacitor or Cordova plugin. Apple automatically rejects any app built with it (ITMS-90809).",
+      "fix": "Have your developer update every plugin to a version that uses Apple's newer web viewer (WKWebView)."
+    },
+    "RN-OTA-UNDECLARED": {
+      "from": "78ec1ecf",
+      "title": "Hidden over-the-air updates in React Native app",
+      "problem": "This applies only to apps built with React Native or Expo. Your app has a tool that updates its code without a new store release (react-native-code-push, expo-updates, react-native-ota-hot-update or Stallion), and your App Review notes don't say it's only for bug fixes.",
+      "fix": "Name the update tool in your App Review notes and use it only for bug fixes that keep the purpose, design and features Apple reviewed. Since 16 October 2026, Apple treats hidden updates that add features after approval as bait and switch (guideline 2.5.19)."
+    },
+    "RN-PRIVACY-MANIFEST-MISSING": {
+      "from": "ed276b99",
+      "title": "React Native app missing Apple's privacy file",
+      "problem": "Your app uses React Native or Expo and includes native modules, such as Firebase, AsyncStorage or expo-file-system, that use phone features Apple makes you explain. But there's no Apple privacy file (PrivacyInfo.xcprivacy) giving the reasons.",
+      "fix": "Have your developer add Apple's privacy file (PrivacyInfo.xcprivacy) for the whole app. Every native module that comes in through your JavaScript packages also needs its own privacy file, and all of them must be combined in the final app build (IPA)."
+    },
+    "WEB-COOKIE-CONSENT": {
+      "from": "7179aa4d",
+      "title": "Setting extra cookies before visitors agree",
+      "problem": "Your site or web app saves non-essential cookies without first checking that the visitor accepted them in a cookie banner. The law says visitors must agree before those cookies are set.",
+      "fix": "Add a cookie consent banner that meets the rules and blocks non-essential cookies until the visitor clearly says yes."
+    },
+    "WEB-GDPR-COMPLIANCE": {
+      "from": "4ddafb7e",
+      "title": "Collecting personal data without GDPR controls",
+      "problem": "Your site collects or uses people's personal data without a clear opt-in, a link to your privacy policy, or a way for people to have their data deleted. The GDPR expects all of these.",
+      "fix": "Ask people to clearly opt in before you use their data, and give them a way to have it deleted."
+    },
+    "WEB-INDEXEDDB": {
+      "from": "c147d630",
+      "title": "Personal records stored in browser without protection",
+      "problem": "Your site keeps user records in the browser's built-in database (IndexedDB) without asking for consent, encrypting them, or deleting them properly. That leaves personal data exposed under privacy law.",
+      "fix": "Have your developer store sensitive records encrypted (an encrypted IndexedDB wrapper), check for consent first, and clear the stored data when people log out."
+    },
+    "WEB-LOCAL-STORAGE": {
+      "from": "dc14a51f",
+      "title": "Sensitive data saved unencrypted in the browser",
+      "problem": "Your site saves sensitive details or login tokens (JWT) as plain text in the browser's storage (localStorage), without encryption or checking whether the user agreed.",
+      "fix": "Don't keep sensitive personal details there in plain text. Encrypt any login tokens you store, and respect the user's storage choices."
+    },
+    "WEB-SESSION-STORAGE": {
+      "from": "fa89ea7e",
+      "title": "Session login keys stored without protection",
+      "problem": "Your site keeps raw login or session keys in the browser's per-visit storage (sessionStorage) without encryption or anything to clean them up afterwards.",
+      "fix": "Save as little there as you can, encrypt what you do save, and make sure it's deleted when the session ends."
+    },
+    "WEB-TRACKING-TECHNOLOGIES": {
+      "from": "aa9db9e6",
+      "title": "Tracking scripts load before visitors agree",
+      "problem": "Your site or web app loads outside tracking tools, such as Google Analytics, Facebook Pixel or Hotjar, without first checking that the visitor agreed. The law requires that consent.",
+      "fix": "Have your developer load these tracking scripts and pixels only after the visitor clearly says yes to cookies."
+    },
+    "BOTH-US-ASAA-AGE-SIGNALS-MISSING": {
+      "from": "2874cf42",
+      "title": "No store age check for US state laws",
+      "problem": "This flag is a best guess. Your app has accounts or age-limited features but skips the stores' age signals and verified parent consent for minors, which US state laws require. Utah's store duties began 6 May 2026.",
+      "fix": "Have your developer add the store age tools (Declared Age Range, Play Age Signals API). Get verified parent consent before minors use the app, ask again after big changes, and delete raw age check data afterward."
+    },
+    "GOOGLE-PAYMENTS-DONATION-LINK": {
+      "from": "cd9fe626",
+      "title": "Donation link that skips Google Play billing",
+      "problem": "Your app links to donation pages outside Play billing (Ko-fi, Patreon, Open Collective, Buy Me a Coffee, GitHub Sponsors, Liberapay, PayPal). Only gifts to tax-exempt charities skip Play billing, not trade associations or unincorporated projects (open-source apps are hit most, like AnkiDroid in August 2026).",
+      "fix": "Take the donation link out of your Play version (a separate build is enough), sell it as a one-time Play billing product, or, for a tax-exempt charity, put proof in the review notes. Don't argue in an appeal: Google says 501(c)(6) groups don't qualify."
+    },
+    "GOOGLE-PLAY-CHARGEBACK-LIABILITY": {
+      "from": "9a021da7",
+      "title": "Play billing without handling chargeback disputes",
+      "problem": "A cost, not a rejection. For orders after 3 August 2026, you pay for disputed charges: the price minus Google's fee, plus a card fee, usually USD 15 to 25. Unanswered fraud disputes are lost.",
+      "fix": "Have your developer handle Google's dispute alert (PendingRefundReviewNotification) and answer within 24 hours through the Review Refund API, with your refund preference and proof of use. Count chargeback fees in your revenue plans."
+    },
+    "APPLE-2.3.6-SOCIAL-MEDIA-DECLARATION": {
+      "from": "d9492953",
+      "title": "Social media question not answered before submitting",
+      "problem": "Since September 2026, every new version, update and notarization (Apple's check for other app marketplaces) needs an answer on whether your app has social media features. If it has feeds, followers, chat rooms, direct messages or live streams and you haven't answered, you can't submit.",
+      "fix": "Answer it in App Store Connect (or set socialMedia and socialMediaAgeRestricted in the age-rating declaration via the App Store Connect API). Saying yes puts your app in the Time Allowance category for Social Media, rated 13+ minimum; under-13 users need the Declared Age Range API."
+    },
+    "APPLE-4.0-SIWA-RELAY-DOMAIN": {
+      "from": "2b349d5f",
+      "title": "Sign-ups fail for new Hide My Email addresses",
+      "problem": "Apple's Hide My Email now gives out addresses ending in private.icloud.com as well as privaterelay.appleid.com. If your app only accepts the old one, those sign-ups quietly fail and Apple rejects the broken Sign in with Apple.",
+      "fix": "Have your developer accept both privaterelay.appleid.com and private.icloud.com wherever your app or server checks, allows or matches email addresses."
+    },
+    "APPLE-5.1.1-RESCIND-CONSENT-UNHANDLED": {
+      "from": "a03d2e56",
+      "title": "Parent withdraws consent and your app ignores it",
+      "problem": "Your app checks a user's age range (Declared Age Range) but doesn't respond when Apple says a parent has withdrawn consent (RESCIND_CONSENT). Apple then stops the app opening, but any of the child's data or access on your server tied to that consent stays live.",
+      "fix": "Sign up for Apple's server alerts (App Store Server Notifications) and, on RESCIND_CONSENT, end the child's session and delete data tied to that consent. Build with the iOS 26.2 SDK and Xcode 26.2 (17C52) or later, which Apple requires for all age checking tools."
+    },
+    "APPLE-3.1.1-EXTERNAL-LINK-REGION-GATING": {
+      "from": "e347b532",
+      "title": "Outside purchase link shown in every country",
+      "problem": "Your outside purchase link shows in every country, but the no-permission exception is US only, so reviewers flag it in Japan, Canada, Australia, the UK and most others. Since 16 October 2026, every link must go to an allowed destination, which can vary by region.",
+      "fix": "Show the link only in the US or where you hold Apple's permission (Storefront.current, countryCode); outside the US keep the permission route and disclosure screen. Since 16 October 2026 that permission (StoreKit External Purchase Link Entitlement) includes the Music Streaming Services Entitlement."
+    },
+    "APPLE-4.5.3-LIVE-ACTIVITY-SPAM": {
+      "from": "b533df9b",
+      "title": "Live Activities used for ads or spam",
+      "problem": "Apple's rules now name Live Activities, the live updates on the Lock Screen and Dynamic Island, as something you can't use for spam, phishing or unwanted messages. Marketing, upsells or unrelated content gets rejected.",
+      "fix": "Use each Live Activity only for a real, time-limited activity the user started. No promotions, no engagement bait and nothing unrelated on the Lock Screen or Dynamic Island."
+    },
+    "APPLE-ODR-DEPRECATED-27": {
+      "from": "b77ed7b3",
+      "title": "App still uses On-Demand Resources",
+      "problem": "Apple is phasing out On-Demand Resources (NSBundleResourceRequest tags) from iOS, iPadOS, tvOS and visionOS 27, and the download path will be removed later. Apple won't accept them in uploads from new apps, or apps that never used them, from early 2027 (12 November 2026 notes).",
+      "fix": "Have your developer move the tagged resources to the Background Assets framework before iOS 27 and its sibling systems become the minimum Apple requires for submissions."
+    },
+    "APPLE-ASCAPI-AGERATING-ENDPOINT-REMOVED": {
+      "from": "52354564",
+      "title": "Release tools call a retired Apple service",
+      "problem": "Apple removed two App Store Connect API endpoints for reading an app's age rating. Any build script, fastlane step or CI job that still calls them fails, and your release stops.",
+      "fix": "Have your developer switch to the current age-rating read and update endpoints, and set socialMedia and socialMediaAgeRestricted if your app has social features. Then test the pipeline with a TestFlight build before your next release."
+    },
+    "APPLE-MACOS-ROSETTA-SUNSET": {
+      "from": "99d16a5a",
+      "title": "Mac app built only for Intel chips",
+      "problem": "Apple's 1 September 2026 notice says Intel-only (x86_64) Mac apps stop running on Apple silicon after macOS 27, the last with Rosetta. Its 9 September 2026 notice says macOS 26 is the last for Intel Macs and Rosetta, and macOS 27 is Apple silicon only.",
+      "fix": "Plan for the earlier date: your app must run natively on Apple silicon before macOS 27 ships. Have your developer check build architectures and Intel-only parts, ship a universal or arm64 build, replace Intel-only parts, and test on Apple silicon without Rosetta installed."
+    },
+    "GOOGLE-ORG-REGISTRATION-REQUIRED": {
+      "from": "9cdb8530",
+      "title": "Regulated app published from a personal account",
+      "problem": "From 30 September 2026, finance apps (banking, loans, trading, investment funds, crypto wallets and exchanges), health apps for medical use or human subjects research, apps approved to use VPN features (VpnService) and government apps must come from an organization account, not a personal one.",
+      "fix": "Before 30 September 2026, switch to or create an organization developer account, get a D-U-N-S business number, keep account details identical to your Dun and Bradstreet profile, and move the app using Google's official Transfer ownership process."
+    },
+    "GOOGLE-PLAY-APP-REGISTRATION-MISSING": {
+      "from": "d8690ff9",
+      "title": "App package name not registered for verification",
+      "problem": "Every Google Play app's package name (its unique ID) must be registered in Play Console for Android developer verification by 30 September 2026. This applies worldwide, and unregistered apps risk being removed from Google Play everywhere.",
+      "fix": "In Play Console, finish developer verification and register every package name you distribute. Check again whenever you add a new app ID (applicationId) or app version variant (product flavor). Development builds that are never distributed don't need registering."
+    },
+    "GOOGLE-CONTACTS-PICKER-REQUIRED": {
+      "from": "b5ce5415",
+      "title": "App asks for full contacts access unnecessarily",
+      "problem": "If your app targets Android 17 (API 37) or later, it can only ask to read all contacts (READ_CONTACTS) when the Contact Picker can't cover a core feature. Checks start 27 October 2026, enforcement 27 January 2027.",
+      "fix": "Use the Contact Picker when people pick a contact once. Keep full access only for a real core use, like a dialer or contacts manager, and fill in the declaration in Play Console."
+    },
+    "GOOGLE-LOCATION-BUTTON-SCOPE": {
+      "from": "a590be94",
+      "title": "Location asked for without the location button",
+      "problem": "Your app targets Android API 37 or later and asks broadly for precise location (ACCESS_FINE_LOCATION) for a tap-to-locate feature. From 27 January 2027, when location is needed only at a moment the user triggers, you must use the Android location button instead.",
+      "fix": "Have your developer handle one-off location use through the location button with the onlyForLocationButton flag in the manifest. Keep the broad location permission only for ongoing features that justify it."
+    },
+    "GOOGLE-FGS-GEOFENCE-REMOVED": {
+      "from": "8f6cdecb",
+      "title": "Always-on location service used for geofencing",
+      "problem": "For apps targeting API 37, geofencing (alerts when someone enters or leaves an area) is no longer an approved reason for an always-on location service (FOREGROUND_SERVICE_LOCATION). If geofencing is its only use, Google rejects the app from 27 January 2027.",
+      "fix": "Have your developer switch to Android's Geofence API (GeofencingClient) and remove FOREGROUND_SERVICE_LOCATION if geofencing was the only reason for it."
+    },
+    "ANDROID-LOCAL-NETWORK-PERMISSION": {
+      "from": "37c1f3f2",
+      "title": "App uses local network without asking permission",
+      "problem": "On Android 17, if your app targets API 37 or later, finding or connecting to devices on the same local network fails with a security error unless the app declares and asks for local network access (ACCESS_LOCAL_NETWORK).",
+      "fix": "Have your developer declare android.permission.ACCESS_LOCAL_NETWORK and ask for it before any local network search or connection. If the user says no, the app should keep working as well as it can."
+    },
+    "ANDROID-R8-OPTIMIZATION-MISSING": {
+      "from": "fc65b5ad",
+      "title": "Release build isn't shrunk or optimized",
+      "problem": "From February 2027, apps must reach at least 25 percent coverage across optimization, shrinking and obfuscation (making code harder to read), using a tool like R8. A release build with minifyEnabled off or unset loses visibility and publishing abilities.",
+      "fix": "Have your developer turn on R8 for release builds (isMinifyEnabled = true, isShrinkResources = true) and fix the keep rules (code R8 must leave alone). Then check the optimization report in Play Console before February 2027."
+    },
+    "ANDROID-RESTORE-CREDENTIALS-REQUIRED": {
+      "from": "13d1bfec",
+      "title": "Sign-in lost when users switch phones",
+      "problem": "From April 2027, any app with sign-in, optional or required, must keep users signed in when they move to a new Android device, using the Restore Credentials API. Games are out of scope for now.",
+      "fix": "Have your developer create a restore credential through Credential Manager when someone signs in, use it on first launch after a device move, and delete it when they sign out."
+    },
+    "GOOGLE-GENAI-NCII-CONTROLS": {
+      "from": "9c0b29a9",
+      "title": "AI image or video app lacks safety checks",
+      "problem": "Your app makes or edits images or video of people without the custom safety checks, written safety test record and full-access reviewer test account Google requires. Suspended apps can't earn money or advertise across Google platforms.",
+      "fix": "Add customized moderation of user input and app output for intimate and deepfake content. Keep a written test record of safety prompts and edge cases, and put a test account with full access, no paywall, to every AI feature in the Play Console review notes."
+    },
+    "GOOGLE-ANON-CHAT-MINOR-BLOCK": {
+      "from": "e945e7e9",
+      "title": "Stranger or anonymous chat app open to children",
+      "problem": "Your app's main purpose is matching people with random strangers or letting them chat with hidden identities. Google requires these apps to block minors with Play Console tools, not target children, and meet its child safety rules.",
+      "fix": "Turn on the minor-blocking tools in Play Console and set your age rating and target audience to exclude children. Publish your standards against child sexual abuse, add in-app reporting, remove abuse material, and name a child-safety contact."
+    },
+    "GOOGLE-UNRATED-APP-BANNED": {
+      "from": "9544940a",
+      "title": "App published or updated without a content rating",
+      "problem": "Google has made clear that apps with no content rating aren't allowed on Google Play. If your content rating questionnaire is unfinished or has expired, you can't publish, and you have to check this yourself in Play Console.",
+      "fix": "Fill in the content rating questionnaire for every app, and answer it again whenever your features change, such as adding chat, content your users post, gambling or AI-generated content."
+    },
+    "APPLE-ENROLLMENT-VERIFICATION-PENDING": {
+      "from": "70c7f41e",
+      "title": "Launch planned before developer account is active",
+      "problem": "Not a rejection, a launch blocker: accounts sat in Pending two to six weeks after payment, ID upload links failed, support went silent for weeks and an organization switch stayed open 61 days. Before scheduling submission, check membership status, agreement acceptance and pending switches.",
+      "fix": "At least six weeks before first submission, enroll, verify with government ID ready, accept every agreement update promptly (Brazil by 6 July 2026, EU before 1 October 2026). Start an organization-account switch a quarter early, track the case number and phone support, not just email."
+    },
+    "APPLE-2.3.14-CREATIVE-ASSET-CONTENT": {
+      "from": "20ab1c39",
+      "title": "Product page artwork shows prices or misleading claims",
+      "problem": "New since 16 October 2026, guideline 2.3.14 covers product page header and search result artwork. Apple rejects specific or discounted prices, uncheckable claims, misleading references to other apps, content not fit for all ages, or art unrelated to your app's content, features or brand.",
+      "fix": "Keep artwork about your app or brand, fit for all ages, with no prices, discounts, rankings, claims nobody can check or references to other apps. Follow Apple's asset guidelines. It's checked by hand in App Store Connect, since these assets aren't in your project."
+    },
+    "APPLE-2.5.19-HIDDEN-OR-DORMANT-FEATURE": {
+      "from": "92c408b3",
+      "title": "Hidden features or bait-and-switch after review",
+      "problem": "Your app hides features from reviewers or users: a server switch that turns it into another app after approval, a secret gesture or menu, or scrambled code. Since 16 October 2026, guideline 2.5.19 names bait-and-switch: misdescribing features during review, then adding new ones after approval.",
+      "fix": "Show reviewers every feature, describe each in Notes for Review, use remote settings only to tune or gradually roll out reviewed features, and never scramble code to hide features. Remote switches alone are fine, but violations can get your app removed and developer account closed."
+    },
+    "APPLE-5-TRAFFICKING-CHILD-EXPLOITATION": {
+      "from": "c318eb33",
+      "title": "App that helps trafficking or child exploitation",
+      "problem": "Since 16 October 2026, apps found to help human trafficking or child exploitation are reported to authorities, removed from the App Store and blocked from other distribution. Checked by hand, risk sits with marketplaces, classifieds, escort or companion listings, anonymous contact and anywhere adults reach minors.",
+      "fix": "Moderate listings and messages for signs of trafficking and child exploitation, verify ages wherever adults can reach minors, report child sexual abuse material to NCMEC as US law requires, and keep the reporting path guideline 1.2 asks for."
+    },
+    "APPLE-MIN-DEPLOYMENT-TARGET-IOS13": {
+      "from": "d075c57d",
+      "title": "App supports iOS versions older than iOS 13",
+      "problem": "Apple requires iPhone and iPad apps uploaded to App Store Connect to target iOS 13 or later. If your app's minimum iOS version (IPHONEOS_DEPLOYMENT_TARGET) or Podfile is set lower, the upload is refused.",
+      "fix": "Have your developer raise the minimum to iOS 13.0 or later in the project, the app target and the Podfile. A library or test target set lower won't block the upload on its own."
+    },
+    "APPLE-2.5.5-IPV4-ONLY-NETWORKING": {
+      "from": "97ce22bc",
+      "title": "Networking that fails on Apple's IPv6-only test network",
+      "problem": "Apple tests apps on an IPv6-only network (NAT64), and guideline 2.5.5 says apps must work fully on IPv6-only networks. Code that looks up addresses or connects with inet_addr, inet_aton or gethostbyname works on IPv4 but fails in review, so your app looks broken.",
+      "fix": "Have your developer use getaddrinfo, Network.framework or URLSession, avoid hardcoded IPv4 addresses, and test on a NAT64 network set up with Mac Internet Sharing."
+    },
+    "APPLE-5.1.3-HEALTH-DATA-ICLOUD": {
+      "from": "67cb9574",
+      "title": "Health data might end up in iCloud",
+      "problem": "Apple doesn't allow personal health information in iCloud. If your app reads Apple Health data (HealthKit) and also saves to iCloud (CloudKit, NSUbiquitousKeyValueStore or NSPersistentCloudKitContainer), check that no health data goes there.",
+      "fix": "Keep HealthKit and other health data on the device or on a server you control, and leave it out of any iCloud sync (CloudKit or iCloud key-value storage)."
+    },
+    "ANDROID-DEBUGGABLE-RELEASE": {
+      "from": "8dc8cda8",
+      "title": "App uploaded with debug mode left on",
+      "problem": "Play Console refuses any app file (APK or app bundle) marked debuggable, a setting meant for testing. If it's written into the manifest (android:debuggable=\"true\"), it stays on in the version you publish.",
+      "fix": "Have your developer remove the debuggable setting (android:debuggable) from the manifest. The release build keeps it off on its own."
+    },
+    "ANDROID-FGS-SPECIAL-USE-UNDECLARED": {
+      "from": "9a746d83",
+      "title": "Ongoing task with no reason given to Google",
+      "problem": "Your app has an ongoing task (a foreground service) of the special-use type (specialUse). That needs a subtype setting (PROPERTY_SPECIAL_USE_FGS_SUBTYPE) and a reason in Play Console. Without them, review asks why and can reject the update.",
+      "fix": "Have your developer add the subtype setting inside the service, then fill in the foreground service declaration in Play Console. Or switch to a more specific service type."
+    },
+    "ANDROID-64BIT-ABI-MISSING": {
+      "from": "6652f156",
+      "title": "No 64-bit version of your app's native code",
+      "problem": "Google Play needs a 64-bit version of every native library, the parts of your app built for specific phone chips. If the chip list (abiFilters) has 32-bit (armeabi-v7a) but not 64-bit (arm64-v8a), it fails.",
+      "fix": "Have your developer add arm64-v8a to the chip list (abiFilters). If you also ship for x86 chips, add x86_64 too."
+    }
+  },
+  "deadlines": {
+    "EU-AI-ACT-ART-4": {
+      "from": "f11193a3",
+      "title": "Make sure your team understands AI",
+      "summary": "If your company builds or uses AI, take steps so the people working with it understand it well enough, in proportion to how it's used. A written policy, onboarding and a training log are good proof, though the law doesn't require them."
+    },
+    "EU-AI-ACT-ART-5": {
+      "from": "7c2b1cfc",
+      "title": "Some uses of AI are now banned",
+      "summary": "Your app can't use AI for banned practices. These include subliminal manipulation, exploiting children, social scoring, and sorting people into categories based on their biometric traits, such as their face. Other practices are banned too."
+    },
+    "EU-AI-ACT-ART-50": {
+      "from": "b55607b1",
+      "title": "Tell people about AI and deepfakes",
+      "summary": "If your app uses AI, tell people when they're dealing with an AI, mark content made by AI as artificial, and say clearly when something is a deepfake."
+    },
+    "EU-AI-ACT-GPAI": {
+      "from": "56e07f6b",
+      "title": "Rules for general-purpose AI models apply",
+      "summary": "If you provide a general-purpose AI model, meaning one built to handle many kinds of tasks, its obligations apply from this date. So do the law's oversight rules and its penalties."
+    },
+    "EU-AI-ACT-HIGH-RISK-ANNEX-III": {
+      "from": "c6583210",
+      "title": "Rules for Annex III high-risk AI start later",
+      "summary": "If your app uses AI for one of the high-risk uses listed in Annex III of the law, its duties, compliance checks and governance requirements now start later. A change adopted on 8 July 2026, in force since 27 July 2026, set the new date. It's final, not a proposal."
+    },
+    "EU-AI-ACT-HIGH-RISK-ANNEX-I": {
+      "from": "6abe9dac",
+      "title": "High-risk AI in listed products starts later",
+      "summary": "If your high-risk AI is built into a product in one of the categories listed in Annex I of the law, such as machinery, toys or lifts, the compliance date is now later. A change adopted on 8 July 2026, in force since 27 July 2026, set the new date. It's final, not a proposal."
+    },
+    "EU-DMA-EXTERNAL-PURCHASE": {
+      "from": "dcacad50",
+      "title": "Rules for outside payments and offers",
+      "summary": "If you offer other payments or outside deals, you need the StoreKit External Purchases or Offers Entitlement and its disclosure sheet (ExternalPurchaseCustomLink). Give In-App Purchase equal prominence when offered, add parental checks for minors, keep these options for 12 months and report transactions monthly."
+    },
+    "EU-DSA-TRADER-STATUS": {
+      "from": "c7122aa9",
+      "title": "Declare trader status or lose your EU listing",
+      "summary": "Declare whether you're a trader and get verified with a D-U-N-S number, a phone number and email shown publicly, and two-step login. If you don't, your app is removed from the EU storefront."
+    },
+    "EU-EAA-ACCESSIBILITY": {
+      "from": "d053bcde",
+      "title": "Make your app accessible to disabled users",
+      "summary": "Your app has to meet the EU mobile accessibility standard (EN 301 549 Chapter 11, in line with WCAG 2.1 AA). You also have to publish accessibility information in your terms and conditions or a similar document."
+    },
+    "EU-DATA-ACT-CORE": {
+      "from": "a1b54f21",
+      "title": "Let users access data from connected devices",
+      "summary": "If your app works with connected products or wearables, build it from the start so people can get to the data those devices create. These are the law's core data access rules."
+    },
+    "EU-DATA-ACT-DESIGN": {
+      "from": "eb35cd0b",
+      "title": "Connected devices must make data accessible",
+      "summary": "Connected wearables and devices have to be built so their data is accessible by design. This duty covers connected products, not cloud switching. Separately, switching charges fall to zero on 12 January 2027."
+    },
+    "EU-CRA-REPORTING": {
+      "from": "1bb41bd3",
+      "title": "Report vulnerabilities and security incidents",
+      "summary": "You'll have to actively report vulnerabilities and give notice of security incidents."
+    },
+    "EU-CRA-MAIN": {
+      "from": "b7e1e523",
+      "title": "Build security in and fix weaknesses",
+      "summary": "The main security rules start to apply. Your product has to be designed with security built in from the start, and you need a process for handling security weaknesses."
+    },
+    "US-COPPA-AMENDED": {
+      "from": "a61f6907",
+      "title": "Stricter rules for children's data",
+      "summary": "Follow the amended rule: biometric identifiers count as personal information. Get separate opt-in consent before sharing kids' data with third parties or using it for targeted ads, and keep a written retention policy and security program. Earlier dates (90 days and six months after the 22 April 2025 publication) apply only to FTC-approved Safe Harbor programs, not app developers."
+    },
+    "US-FTC-HEALTH-BREACH": {
+      "from": "4809c5db",
+      "title": "Sharing health data with advertisers is a breach",
+      "summary": "If your app handles health or other sensitive data, sharing it with advertisers without permission counts as a breach. You must send notice within 60 days."
+    },
+    "US-TX-ASAA": {
+      "from": "057c7411",
+      "title": "Age checks and parental consent for minors",
+      "summary": "Age checks and verifiable parental consent for minors apply to downloads, purchases and major updates. Delete age data and request age category. Effective 1 January 2026. Blocking orders of 23 December 2025 were paused by the appeals court on 4 June 2026, and the Supreme Court kept that pause on 6 July 2026, so it applies during the appeal."
+    },
+    "US-LA-ASAA": {
+      "from": "898ac140",
+      "title": "Parental consent again on major updates",
+      "summary": "Request the user's age category, get parental consent, and ask for consent again on major updates. This law replaces the 2025 version, which never takes effect, and starts 1 July 2027. Apple's store still shows the Louisiana age-range signal on its own schedule."
+    },
+    "US-AL-ASAA": {
+      "from": "5410ccb1",
+      "title": "App stores verify age and get parental consent",
+      "summary": "App stores must verify age category, link minors to a parent account, and get verifiable parental consent for every download and in-app purchase, starting 1 January 2027. Accounts that exist on 2 October 2026 must be age-verified with consent before 1 October 2027."
+    },
+    "US-CA-CPRA": {
+      "from": "79348cfd",
+      "title": "Honor privacy signals and opt-outs",
+      "summary": "Honor Global Privacy Control (GPC) signals, keep a privacy policy, show a notice when collecting data, let people opt out of sale, sharing and profiling, and limit sensitive data use. Automated decision rules start 1 April 2027, security audits 1 April 2028."
+    },
+    "US-IL-BIPA": {
+      "from": "7f1d1d6f",
+      "title": "Ask before collecting face or fingerprint data",
+      "summary": "If your app collects face scans, fingerprints or similar data, tell people in writing and get their written consent before you collect it. Publish how long you keep it, delete it within 3 years, and never sell it."
+    },
+    "UK-OSA-CHILD-SAFETY": {
+      "from": "7fbc6f7c",
+      "title": "Use strong age checks to protect children",
+      "summary": "Your app needs highly effective age checks, such as facial age estimation, open banking checks or credit card checks, to keep children away from harmful content."
+    },
+    "UK-ICO-CHILDREN-CODE": {
+      "from": "09bd215e",
+      "title": "Set high privacy by default for children",
+      "summary": "Set privacy high by default, collect only the data you need, keep location off and turn profiling off by default. You must also do a data protection impact assessment (DPIA). There's a 12-month grace period."
+    },
+    "AU-SOCIAL-MEDIA-MIN-AGE": {
+      "from": "4efb8dc1",
+      "title": "Keep under-16s off social media accounts",
+      "summary": "If your app is social media, use strong age checks to stop anyone under 16 holding an account. Keep the age data separate from everything else and destroy it. There's a 12-month grace period."
+    },
+    "BR-DIGITAL-ECA": {
+      "from": "86121447",
+      "title": "Check ages properly, no tick-box allowed",
+      "summary": "Check ages with an accepted method, such as a document check, facial age estimation or a check of the Brazilian tax ID (CPF). A box people tick to say their age isn't allowed. There's a 6-month grace period."
+    },
+    "KR-TELECOM-BUSINESS-ACT": {
+      "from": "d69e160b",
+      "title": "Rules for using outside payment providers",
+      "summary": "If you offer payments outside Apple's system, use an approved billing provider, pay a 26% commission and get the external purchase permission (com.apple.developer.storekit.external-purchase). Ship a South Korea-only version, show the required pop-up sheet and send the required reports."
+    },
+    "IN-DPDPA-RULES": {
+      "from": "e32760aa",
+      "title": "Parental consent for under-18s, no ad tracking",
+      "summary": "If under-18s use your app, get verifiable consent from a parent through a government-backed system such as DigiLocker. You can't track their behavior or show them targeted ads. There's an 18-month grace period."
+    },
+    "SG-IMDA-ONLINE-SAFETY": {
+      "from": "89aa6f46",
+      "title": "App stores must block unsuitable apps for under-18s",
+      "summary": "App stores have to check users' ages, stop under-18s downloading apps that aren't suitable for them, and destroy the age data afterwards. The wider code these checks belong to already started on 31 March 2025."
+    },
+    "CN-MOBILE-APP-FILING": {
+      "from": "14848e3f",
+      "title": "Register your app with Chinese regulators",
+      "summary": "File your app with the MIIT (China's tech ministry), work through a local partner or company, use real-name checks, follow China's privacy law (PIPL) and keep data in China. Games need a Banhao license. There's a 7-month grace period."
+    },
+    "APPLE-AGE-RATING-QUESTIONNAIRE": {
+      "from": "aba35701",
+      "title": "Answer Apple's updated age rating questions",
+      "summary": "Every app must answer Apple's updated age rating questions, which add 13+, 16+ and 18+ ratings and ask about user content and livestreaming. If you don't, you can't release updates. There's a 6-month grace period."
+    },
+    "APPLE-XCODE-26-SDK-REQ": {
+      "from": "f59c1080",
+      "title": "Build uploads with the iOS 26 SDK",
+      "summary": "From 28 April 2026, every app you upload to App Store Connect must be built with Apple's iOS 26 and iPadOS 26 toolkit (SDK) or later, and the matching watchOS 26, tvOS 26 and visionOS 26 SDKs. Mac apps aren't on the list. Age check features also need the iOS 26.2 SDK with Xcode 26.2 (17C52) or later."
+    },
+    "APPLE-SDK-27-REQ": {
+      "from": "4dd8cb4b",
+      "title": "Build with the iOS 27 SDK or later",
+      "summary": "From April 2027, apps and games uploaded to App Store Connect must be built with the iOS 27 and iPadOS 27 SDKs or later, and the matching tvOS 27, visionOS 27 and watchOS 27 SDKs. Apple announced this on 9 September 2026 but named no exact day, so plan for 1 April 2027 until it does. macOS isn't listed."
+    },
+    "APPLE-IPHONE-DUO-SCREENSHOTS-REQ": {
+      "from": "848e3bc6",
+      "title": "Add iPhone Duo screenshots to your app",
+      "summary": "Starting April 2027, apps built with the iOS 27.1 SDK or later need iPhone Duo screenshots, though one Apple post says every app and game submitted. Apple hasn't named the day, so treat it as 1 April 2027 for now and check again once Apple does. Apple has accepted them since 5 October 2026."
+    },
+    "APPLE-18-PLUS-BLOCK": {
+      "from": "ae6ca714",
+      "title": "Confirm age before 18-plus downloads",
+      "summary": "If your app is rated 18-plus, people in Brazil, Australia and Singapore can't download it unless their age has been confirmed through reasonable methods."
+    },
+    "GOOGLE-PLAY-BILLING-V8": {
+      "from": "8ee39d0c",
+      "title": "Use Play Billing Library 8 for new releases",
+      "summary": "From 31 August 2026, every new app and update you publish on Google Play must use Play Billing Library version 8 or later. You can get an extension to 1 November 2026. Versions of your app already live on version 7 can keep taking payments until the 2027 deadline for all apps."
+    },
+    "GOOGLE-PLAY-TARGET-API-35": {
+      "from": "9444aec0",
+      "title": "Target Android 15 for new apps and updates",
+      "summary": "New apps and updates must be built to target API level 35 (Android 15) or higher. Apps already on Google Play must target API level 34 or higher."
+    },
+    "GOOGLE-PLAY-TARGET-API-36": {
+      "from": "30995144",
+      "title": "Target Android 16 for new apps and updates",
+      "summary": "From 31 August 2026, new apps and updates must target Android 16 (API 36) or higher, unless you request an extension to 1 November 2026 in Play Console. Wear OS and Android Automotive OS apps need API 35 or higher, TV and XR apps 34 or higher. Already-published apps need 35 or higher to reach new users on newer devices."
+    },
+    "GOOGLE-PLAY-PHOTO-VIDEO-PERM": {
+      "from": "76f169ae",
+      "title": "Use the Photo Picker for photo access",
+      "summary": "Only apps that need broad access to photos and videos can request it (READ_MEDIA_IMAGES, READ_MEDIA_VIDEO). Every other app must use the Android Photo Picker instead."
+    },
+    "GOOGLE-PLAY-CHILD-SAFETY": {
+      "from": "f76c036a",
+      "title": "Publish child safety standards and a contact",
+      "summary": "Publish your standards against child sexual abuse and exploitation on a web page anyone can reach, offer in-app feedback, have a plan for responding to child sexual abuse material, and name a child safety contact."
+    },
+    "EU-E-EVIDENCE-REGULATION": {
+      "from": "0cb2a997",
+      "title": "Answer police data requests within set deadlines",
+      "summary": "If police in another EU country ask your company directly for electronic evidence, such as user data, you have to respond within 10 days, or within 8 hours in an emergency."
+    },
+    "EU-WITHDRAWAL-BUTTON-DIRECTIVE": {
+      "from": "0c3404b4",
+      "title": "Add a clear button to cancel contracts",
+      "summary": "If people can sign contracts through your app or website, add a prominent, easy-to-reach withdrawal button or function so they can back out of the contract."
+    },
+    "EU-GPSR-SAFETY": {
+      "from": "4d5525b9",
+      "title": "Show maker details and safety warnings online",
+      "summary": "If you sell consumer products online, show the maker's name, an electronic contact, a postal address and any product safety warnings. This applies wherever you offer those products online, such as your website or app."
+    },
+    "GOOGLE-PLAY-CHARGEBACK-COST-SHIFT": {
+      "from": "da52fc7d",
+      "title": "You pay most chargeback costs on new orders",
+      "summary": "For orders placed after 3 August 2026, you pay the purchase price minus Google's service fee, plus the bank's or other financial institution's chargeback fee. Google Play covers only its service fee. To contest disputes that aren't legitimate, you must handle the refund review notice (PendingRefundReviewNotification) and call the Review Refund API within 24 hours."
+    },
+    "GOOGLE-ORG-REGISTRATION-REGULATED-CATEGORIES": {
+      "from": "a6d24513",
+      "title": "Some app types need an organization account",
+      "summary": "Publish from an organization account with a D-U-N-S number that matches your Dun and Bradstreet profile if your app offers financial products (banking, loans, stock trading, investment funds, crypto wallets or exchanges), is a medical or human subjects research health app, is approved to use VPN features (VpnService class), or is a government app. Apps that don't comply are removed."
+    },
+    "GOOGLE-PLAY-APP-PACKAGE-REGISTRATION": {
+      "from": "c03d77e4",
+      "title": "Register every app's package name in Play Console",
+      "summary": "Register each app's package name (its unique ID) in Play Console for Android developer verification. This applies worldwide, separate from the sideloading rules for Brazil, Indonesia, Singapore and Thailand. Unregistered apps risk removal from Google Play everywhere."
+    },
+    "GOOGLE-US-ALT-BILLING-FEE-REPORTING": {
+      "from": "741fcc46",
+      "title": "Report outside payments and pay Play fees",
+      "summary": "If you're enrolled in Google Play's US alternative billing or external links program, then starting 1 October 2026 you must report your transactions and successful downloads and pay the relevant Play service fee."
+    },
+    "GOOGLE-PLAY-CATALOG-ACCESS-DEFAULT": {
+      "from": "37427f5f",
+      "title": "Other US app stores can list your app",
+      "summary": "From 22 July 2026, registered third-party Android app stores in the US can access the Play catalog and list your app by default. If you don't want your app distributed through those stores, opt out in Play Console under Settings, then Catalog Settings."
+    },
+    "GOOGLE-CONTACTS-LOCATION-FGS-API37": {
+      "from": "162ebe38",
+      "title": "Stricter contacts and location rules on Android 17",
+      "summary": "If your app targets API 37 or later, request contacts (READ_CONTACTS) only when the Contact Picker can't cover core features, and declare it. Use the location button with the onlyForLocationButton manifest flag for location-button scope. Use the Geofence API, not a foreground service, for geofencing. From 27 October 2026, Play Console pre-review checks flag contacts and location issues."
+    },
+    "GOOGLE-TECH-QUALITY-FEB-2027": {
+      "from": "8a828857",
+      "title": "Meet new code and memory optimization standards",
+      "summary": "Google says that from February 2027 (exact day not published), your app must have at least 25 percent coverage across optimization, shrinking and obfuscation with a tool such as R8. It must not keep images (bitmaps) in memory when not visible, and must stay within memory bad-behavior thresholds. Falling short affects visibility and publishing options."
+    },
+    "GOOGLE-RESTORE-CREDENTIALS-APR-2027": {
+      "from": "2873bab3",
+      "title": "Keep users signed in on new Android devices",
+      "summary": "From April 2027 (exact day not published), if your app lets people sign in, whether sign-in is optional or required, it must restore their sign-in when they move to a new Android device, using the Restore Credentials API. Games are currently not included."
+    },
+    "GOOGLE-ANON-CHAT-CHILD-SAFETY-2026": {
+      "from": "1afdea0e",
+      "title": "Block minors from anonymous chat apps",
+      "summary": "If your app is mainly for random or anonymous chat with strangers, use Play Console tools to block minors and don't target children under Families. You must also publish child-safety standards, offer in-app reporting, remove child sexual abuse material and name a child-safety contact."
+    },
+    "APPLE-SOCIAL-MEDIA-DECLARATION-GATE": {
+      "from": "ae48fc86",
+      "title": "Declare social media features before submitting updates",
+      "summary": "Starting September 2026 (no exact day published), you must say whether your app or game has social media features before you can submit a new version or update, or notarize for other marketplaces. Saying yes gives it a 13+ minimum rating and puts it in Apple's Social Media screen time category. To serve under-13 users you need the Declared Age Range API."
+    },
+    "EU-DMA-UNIFIED-TERMS-2026": {
+      "from": "429a7fdf",
+      "title": "New EU fees and payment options for apps",
+      "summary": "From 1 October 2026, a 5 percent commission on digital sales in apps distributed outside the App Store replaces the per-install Core Technology Fee, and the Initial Acquisition Fee and Store Services Fee end. You may offer other payment options alongside Apple In-App Purchase. Seven alternative criteria widen who can distribute through marketplaces and the web. Accept Apple's Attachment 14."
+    },
+    "APPLE-ADPLA-ATTACHMENT-12-BRAZIL": {
+      "from": "bcf81406",
+      "title": "Accept new terms for alternative distribution in Brazil",
+      "summary": "By 6 July 2026, every Apple Developer Program member had to accept the updated developer agreement. Until you do, you can't send new submissions. From iOS 26.5, in Brazil only, you may distribute through other app marketplaces, run your own marketplace, and take payments for digital goods outside Apple In-App Purchase."
+    },
+    "APPLE-REGION-AGE-RATINGS-AU-VN-2026": {
+      "from": "c5dc3432",
+      "title": "Age rating changes in Australia and Vietnam",
+      "summary": "From 18 June 2026, the 15+ rating is no longer available in Australia, and apps that had it move to 16+. Apps available in Vietnam need their own Vietnam age rating that follows local rules. Check your age rating for each storefront in App Store Connect."
+    },
+    "GOOGLE-PLAY-BILLING-V8-EXISTING-2027": {
+      "from": "3aa5cfaf",
+      "title": "Update to Play Billing Library 8, then 9",
+      "summary": "All published apps must use Play Billing Library 8 by 31 August 2027 (1 November 2027 with an extension) and version 9 by 31 August 2028 (1 November 2028 with an extension). New submissions needed version 8 by 31 August 2026 (1 November 2026 with an extension). Published versions on older libraries can still process purchases until their own deadline."
+    },
+    "US-ADA-TITLE-II-WCAG-2027": {
+      "from": "e05fc413",
+      "title": "Government apps must meet accessibility standard",
+      "summary": "If a state or local government serving 50,000 or more people provides or makes your app available, the app must meet the accessibility standard WCAG 2.1 Level AA by 26 April 2027. The earlier date of 24 April 2026 was pushed back. The duty reaches you as a commercial developer through the contract or licensing chain."
+    },
+    "US-ADA-TITLE-II-WCAG-2028": {
+      "from": "78fe25b2",
+      "title": "Accessible apps for small public bodies by 2028",
+      "summary": "If your app is for a public body serving fewer than 50,000 people, or for any special district government, it must meet the WCAG 2.1 AA accessibility standard by 26 April 2028. This deadline has been pushed back to that date."
+    },
+    "US-HHS-504-WCAG-2027": {
+      "from": "69cce8ab",
+      "title": "Health-funded organizations' apps must be accessible",
+      "summary": "If an organization with 15 or more employees gets federal funding from the US health department (HHS) and provides a mobile app, directly or through a contract or licensing arrangement, the app must meet the WCAG 2.1 Level AA accessibility standard by 11 May 2027. This replaces the earlier date of 11 May 2026."
+    },
+    "US-HHS-504-WCAG-2028": {
+      "from": "6c9825c6",
+      "title": "More time for small HHS-funded organisations",
+      "summary": "If your organisation gets US health department (HHS) funding and has fewer than 15 employees, your website and mobile apps must meet the WCAG 2.1 AA accessibility standard. Your deadline has moved from 10 May 2027 to 10 May 2028."
+    },
+    "US-FTC-COPPA-AGE-VERIFICATION-POLICY": {
+      "from": "a6c097ed",
+      "title": "Collect age data safely for age checks",
+      "summary": "For general or mixed-audience apps, collecting and using age data to check ages won't risk COPPA enforcement, but only if you use it solely to work out age, keep it as briefly as possible, vet any third parties, tell parents and children, and secure it. This holds until final COPPA rule changes are published or the policy is withdrawn."
+    },
+    "UK-DUAA-COMPLAINTS-PROCESS-2026": {
+      "from": "113a86e1",
+      "title": "Set up a data protection complaints process",
+      "summary": "You need a way for people to complain about how you handle their personal data. Acknowledge each complaint within 30 days and respond without undue delay."
+    },
+    "UK-ICO-STORAGE-ACCESS-GUIDANCE-2026": {
+      "from": "a4f7f763",
+      "title": "Recheck all tracking, not only cookies",
+      "summary": "Check every software kit (SDK) in your app, every tracking pixel and every device-fingerprinting call (identifying a device from its details) against the new guidance, not only cookies. Breaking the consent rules can now bring fines on the same scale as UK GDPR."
+    },
+    "UK-DMCCA-SUBSCRIPTIONS-2027": {
+      "from": "1dd5c48c",
+      "title": "New rules for auto-renewing subscriptions",
+      "summary": "Apps selling auto-renewing subscriptions to UK consumers must give key information before sign-up, send renewal reminders, offer two cooling-off periods, make cancelling easy and follow new refund rules. On 9 August 2026 the government said this starts in January 2027. A draft rule says 1 January 2027 but wasn't final on 14 November 2026, so that day is provisional."
+    },
+    "UK-OSA-APP-STORES-REPORT-2027": {
+      "from": "fa28d837",
+      "title": "Ofcom report on children's app store use",
+      "summary": "Ofcom will publish its report on how children use app stores by January 2027. It will help the government decide whether app stores fall under the Online Safety Act. Nothing to do yet, just keep watching."
+    },
+    "UK-UNDER16-SOCIAL-MEDIA-2027": {
+      "from": "9dd3b48a",
+      "title": "Social apps must block under-16 users",
+      "summary": "Social apps must block under-16s. For 16 and 17 year olds, livestreaming, stranger contact, autoplay and personalised feeds are off by default, and notifications are off from midnight to 6am. AI romantic companion chatbots are 18 and over only. Rules are expected by end 2026, starting spring 2027. The exact day isn't published; 1 March 2027 is a placeholder."
+    },
+    "EU-AI-ACT-MARKING-RETROFIT-2026": {
+      "from": "aa9965fa",
+      "title": "Mark AI content in existing generative features",
+      "summary": "If your generative AI for audio, images, video or text was already on the market before 2 August 2026, add machine-readable marks showing its content is AI-made. Stop running any AI system whose intended or reasonably foreseeable output is non-consensual intimate images or child sexual abuse material."
+    },
+    "EU-PRODUCT-LIABILITY-SOFTWARE-2026": {
+      "from": "b82c7e3f",
+      "title": "Standalone software and app updates count as products",
+      "summary": "From 9 December 2026, standalone software and app updates count as products, so you can be held liable for harm they cause even if you weren't at fault. This covers anything you put on the market or into service on or after that date."
+    },
+    "EU-DATA-ACT-SWITCHING-2027": {
+      "from": "973008e8",
+      "title": "Free switching and fairer older contracts",
+      "summary": "If you provide data processing services, you can't charge customers anything to switch away. Older open-ended or long-term contracts signed on or before 12 September 2025 must meet the unfair-terms rules by 12 September 2027."
+    },
+    "EU-EIDAS-WALLET-ACCEPTANCE-2027": {
+      "from": "bd2197ca",
+      "title": "Accept the EU Digital Identity Wallet",
+      "summary": "Private businesses larger than micro or small size that rely on checking users' identity electronically, use strong login checks, and work in banking, finance, health, telecom, transport, energy, education or digital infrastructure must accept the EU Digital Identity Wallet when a user asks. This applies 36 months after the EU's implementing rules, a worked-out date of 24 December 2027."
+    },
+    "EU-CSAM-EPRIVACY-DEROGATION-EXPIRY-2028": {
+      "from": "188316d4",
+      "title": "Permission for voluntary child abuse scanning ends",
+      "summary": "If your messaging or chat app doesn't run over phone numbers and voluntarily scans messages for child sexual abuse material, that scanning is allowed only until 3 April 2028. After that, you need the legal basis of the permanent Child Sexual Abuse Regulation, or you must stop scanning."
+    },
+    "KR-PIPA-AMENDMENT-2026": {
+      "from": "84c132c9",
+      "title": "Top executives become accountable for privacy",
+      "summary": "Name your CEO and legal representative as the people finally responsible for privacy. If your business is big enough to qualify, appoint a board-approved chief privacy officer. Expect punitive fines and wider rules on reporting data breaches."
+    },
+    "KR-PIPA-MANDATORY-CERTIFICATION-2027": {
+      "from": "7c9fbc7d",
+      "title": "Large data handlers need official privacy certification",
+      "summary": "From 1 July 2027, any organisation or person handling personal information that meets a government threshold, based on revenue and how much personal data it processes, must hold the privacy regulator's certification or face a fine. The threshold wasn't published by 14 November 2026, so check whether your Korean operation falls under it once it is."
+    },
+    "CN-AI-COMPANION-MINORS-2026": {
+      "from": "5d94c255",
+      "title": "Protect minors in AI chat and companion apps",
+      "summary": "If your chat, companion or roleplay app ships in China, identify users who are minors and switch them to minors mode automatically. Get a guardian's consent for under-14s, and never offer minors virtual companions or virtual family members."
+    },
+    "SG-OSRAA-COMMENCEMENT-2026": {
+      "from": "e7584e69",
+      "title": "Act on notices about serious online harms",
+      "summary": "If your app is a platform, you must act when the Online Safety Commission notifies you about any of the five priority harms. More kinds of harm will be added over time, with no dates published yet."
+    },
+    "IN-DPDPA-CONSENT-MANAGERS-2026": {
+      "from": "d2bd242d",
+      "title": "Get ready to work with consent managers",
+      "summary": "Registered consent managers (services that help people give and manage consent for their data) start one year after the rules were published on 13 November 2025. Be ready for your app to work with a registered consent manager before the next set of rules starts, 18 months after publication, on 13 May 2027."
+    },
+    "JP-APPI-AMENDMENT-2028": {
+      "from": "7ad4f153",
+      "title": "Rework consent, children's and biometric data handling",
+      "summary": "Update how you handle consent, children's data and biometric data. For under-16s, a parent or other legal guardian gives consent, gets notices and asks to stop use. This takes effect within two years of 17 July 2026, on a day set by cabinet order, as does a new surcharge system. Updated criminal penalties apply from 17 January 2027, a calculated date."
+    },
+    "AU-ADS-CODE-AGE-ASSURANCE-2026": {
+      "from": "5e50b706",
+      "title": "App stores must check age for adult apps",
+      "summary": "App stores must check users' age and control access before letting anyone download or buy adult apps, starting six months after the Code began. The working-towards grace period ends and the first risk assessment is due that same day. This comes from an archived copy of eSafety pages last updated 19 May 2026, so re-check the live register."
+    },
+    "AU-PRIVACY-ADM-DISCLOSURE-2026": {
+      "from": "38c13d0b",
+      "title": "Explain automated decisions in your privacy policy",
+      "summary": "From 10 December 2026, if your app uses automated decision-making that significantly affects people's rights or interests, your privacy policy must say what kinds of personal information it uses and what decisions it makes."
+    },
+    "AU-CHILDRENS-ONLINE-PRIVACY-CODE-2026": {
+      "from": "69f661dd",
+      "title": "Binding children's privacy rules for online services",
+      "summary": "These children's privacy rules must be finalised and registered by 10 December 2026. They will bring binding children's privacy duties to social media, relevant electronic services and designated internet services. If your app falls into one of these groups, the rules will apply to you."
+    },
+    "BR-DECRETO-12880-AGE-SIGNALS-2026": {
+      "from": "74b31784",
+      "title": "Stores must check age and block some apps",
+      "summary": "App stores and operating systems must give a free age signal, ask age at sign-up, verify it by a regulator-approved method, allow disputes, get guardian approval and show age ratings before download. Stores must block gambling and lottery apps and apps without age checks."
+    },
+    "BR-ANPD-ECA-ENFORCEMENT-2027": {
+      "from": "47b601b4",
+      "title": "Age check rules start being actively enforced",
+      "summary": "Brazil's data protection authority (ANPD) publishes guidance and standards on age checks from August 2026, with time to adapt through November 2026. Active enforcement of the Digital ECA's age check duties starts in January 2027."
+    },
+    "US-TAKE-IT-DOWN-ACT-2026": {
+      "from": "528a085b",
+      "title": "Remove reported intimate images within 48 hours",
+      "summary": "If your app is a covered platform, offer a clear, easy-to-find way to report intimate images shared without consent. Remove reported content and known identical copies within 48 hours. The FTC began enforcing this on 19 May 2026."
+    },
+    "US-CA-AB1043-AGE-SIGNAL-2027": {
+      "from": "df022a98",
+      "title": "Request and use the user's age signal",
+      "summary": "From 1 January 2027, operating systems and app stores ask for a user's age at device setup and share an age range signal with apps through an API (a way for apps to request data). Your app must request this signal and use it."
+    },
+    "US-CA-SB976-ADDICTIVE-FEEDS-2027": {
+      "from": "28f47413",
+      "title": "Treat users as minors unless age is checked",
+      "summary": "From 1 January 2027, treat every user as a minor unless age checks reasonably show otherwise. Do this before you show them an addictive feed or send notifications between midnight and 6am or during school hours. The Attorney General's rules on age checks are also due on 1 January 2027."
+    },
+    "US-CA-AB56-WARNING-LABEL-2027": {
+      "from": "1955826a",
+      "title": "Show daily health warnings on social media",
+      "summary": "If your app is a covered social media platform, from 1 January 2027 show the Surgeon General's black-box health warning every day when someone first uses it. Show it again after three hours of total use, then every hour after that."
+    },
+    "US-CA-CPPA-ADMT-2027": {
+      "from": "ccb79b31",
+      "title": "Notices and opt-outs for automated decisions",
+      "summary": "If your business uses automated decision-making technology in significant decisions, give notice, let people opt out and answer their access requests by 1 January 2027. Finish risk assessments for processing from before 2026 by 31 December 2027 and submit them by 1 April 2028. Cybersecurity audit certifications start 1 April 2028 for revenue above 100 million dollars."
+    },
+    "US-CA-SB243-COMPANION-CHATBOT-2027": {
+      "from": "e6a1d849",
+      "title": "Yearly crisis reports for companion chatbots",
+      "summary": "If your app runs a companion chatbot, from 1 July 2027 you must report every year to the Office of Suicide Prevention on crisis referrals and your crisis protocols. This is on top of the disclosure and minor protection duties that already apply to you."
+    },
+    "US-NY-SAFE-FOR-KIDS-2027": {
+      "from": "9eba38e9",
+      "title": "Limit feeds and night alerts for minors",
+      "summary": "From 25 January 2027, don't show addictive feeds to minors or send them notifications between midnight and 6am unless a parent has given verifiable consent. Use certified age checks to tell who is a minor."
+    },
+    "US-VT-AADC-2027": {
+      "from": "8807f43e",
+      "title": "Strongest privacy settings by default for minors",
+      "summary": "From 1 January 2027, if minors use your app, give them the most private settings by default, collect as little of their data as you can, and don't send them push notifications late at night. You'll also have to follow the attorney general's age-checking rules. Comments on those rules are due by 2 October 2026."
+    },
+    "US-WA-HB2225-COMPANION-CHATBOT-2027": {
+      "from": "38bfa3b5",
+      "title": "Disclosure and protections for AI companion chatbots",
+      "summary": "From 1 January 2027, if your app offers an AI companion chatbot, you must show users the required chatbot disclosure and put protections in place for minors. That includes repeating the disclosure every hour while a minor keeps using it."
+    },
+    "US-CO-SB26-051-AGE-SIGNAL-2028": {
+      "from": "f1173218",
+      "title": "Apps must check the device's age signal",
+      "summary": "Phone and computer system makers must ask for a user's age at account setup and give apps a live age signal (age-signal API). Your app must request that signal when it launches or when someone creates an account. This starts 1 July 2028, and applies to devices already in use by 1 January 2029."
+    },
+    "US-OK-SB546-PRIVACY-2027": {
+      "from": "ea05098f",
+      "title": "Let people access, fix and delete their data",
+      "summary": "From 1 January 2027, let people see, correct, delete and take a copy of their data. They must also be able to opt out of having it sold, used for targeted ads, or used for profiling."
+    },
+    "APPLE-MULTISEAT-VOLUME-PURCHASING": {
+      "from": "6828ef92",
+      "title": "Decide who can buy subscription seats in bulk",
+      "summary": "Since 16 September 2026, subscriptions allow multi-seat purchases by default. Apple Business and Apple School Manager volume buying starts 22 October 2026, group purchases this winter. Before then, decide per auto-renewing subscription whether to allow it, and turn off or limit it across the App Store, Apple Business and Apple School Manager where it doesn't fit your pricing or access."
+    },
+    "APPLE-AGE-RATING-LOCATION-DATING-2027": {
+      "from": "392e2fb7",
+      "title": "Answer new location and dating age rating questions",
+      "summary": "From 16 November 2026, Apple's age rating questions ask whether your app lets people share their real-world location with another person or group, and whether it helps real people date or form relationships. Every app must answer both by 12 January 2027, and any update or questionnaire change before then must include them. Dating features mean a minimum rating of 18+."
+    },
+    "APPLE-DEVELOPER-ID-SUBCA-EXPIRY-2027": {
+      "from": "6d7722d6",
+      "title": "Re-sign Mac installers before old certificates expire",
+      "summary": "The original Developer ID certificate authority expires on 1 February 2027, and certificates it issued stop working that day. Before then, create a new Developer ID certificate from the Developer ID Certification Authority (G2) and re-sign every installer package you distribute outside the Mac App Store."
+    },
+    "GOOGLE-JAPAN-PAYMENTS-AUTHORIZATION-2026": {
+      "from": "aaf56657",
+      "title": "Complete the Japan payments form in Play Console",
+      "summary": "If you sell into or out of Japan, complete the payments authorization form in Play Console by 1 December 2026. If you don't, Google holds your payments worldwide."
+    },
+    "GOOGLE-SUBSCRIPTION-ELIGIBILITY-DISCOUNTS-2027": {
+      "from": "02927d78",
+      "title": "Explain the rules for student and similar discounts",
+      "summary": "If a subscription has an ongoing discount people must qualify for, like a student plan, clearly say who qualifies, how you check, and what the price and benefits are once they no longer qualify."
+    },
+    "GOOGLE-APPFUNCTIONS-POLICY-2027": {
+      "from": "8c9ce3a1",
+      "title": "Rules for app features AI agents can use",
+      "summary": "If your app exposes AppFunctions (features AI agents can use), it must follow every Play policy. Those functions must not deceive or manipulate AI agents, get around security controls, or interfere with other apps."
+    },
+    "GOOGLE-LOCAL-NETWORK-MANAGE-CONTACTS-2027": {
+      "from": "9436bb15",
+      "title": "Declare Local Network and Manage Contacts permissions",
+      "summary": "Only use Local Network or Manage Contacts for core features where built-in pickers fall short. Both need a Play Console declaration, for Local Network if you target Android 17 (API 37) or higher. Otherwise switch to narrower built-in requests (platform intents)."
+    },
+    "CN-CAC-MINOR-PLATFORM-FILING-2026": {
+      "from": "db56184b",
+      "title": "Apps with many minor users must file",
+      "summary": "If your app has 10 million or more registered, or 1 million or more monthly active, minor users, or significant impact on minors, file designation materials and a self-assessment report with the provincial cyberspace office by around 16 November 2026. Apps aimed at minors: 10 million registered and 1 million monthly active users. The designation committee will tell qualifying non-filers to file."
+    },
+    "ID-PP-TUNAS-SELF-ASSESSMENT-2026": {
+      "from": "101d8a46",
+      "title": "Finish a child-safety check for every feature",
+      "summary": "Every company running an app or online service (electronic system operator) must finish the child-protection self-assessment for each product, service and feature by 31 December 2026. If a product misses that date, Indonesia's digital ministry (Kemkomdigi) says it can label it high-risk directly, which brings the stricter high-risk obligations."
+    },
+    "KR-PIPA-AI-DATA-REUSE-2027": {
+      "from": "c05436c3",
+      "title": "When you can reuse personal data for AI",
+      "summary": "From 9 March 2027, you can reuse personal data collected lawfully for another purpose to develop AI, but only when removing or masking identities would make that hard, it serves a public interest or similar purpose, all legal requirements are met, and the Personal Information Protection Commission reviews and decides on it. Before using this route, assess the risks to users."
+    },
+    "APPLE-MIN-DEPLOYMENT-TARGET-IOS13": {
+      "from": "09a73ad4",
+      "title": "Apps must target iOS 13 or later",
+      "summary": "Any iOS or iPadOS app you upload to App Store Connect must target iOS 13 or later, and this already applies. The pre-submission check flags a lower deployment target (IPHONEOS_DEPLOYMENT_TARGET) or Podfile platform."
+    }
+  },
+  "checklist": {
+    "8fb2894d": {
+      "text": "The review notes include a working demo account connected to your live servers, and you've checked that the login works today."
+    },
+    "525cbe8c": {
+      "text": "Your privacy answers (Apple privacy labels, Google Data Safety form) match what your app really collects while running, including data gathered by every third party code library (SDK) inside it."
+    },
+    "84f13874": {
+      "text": "Your app opens and runs without crashing on a real device, on both the oldest system version you support and the newest."
+    },
+    "d95cbd5b": {
+      "text": "There's no placeholder text, lorem ipsum, dummy images or temporary content anywhere in the version you submit."
+    },
+    "3379ab2d": {
+      "text": "Every link, button and path through your app works, with no dead ends and no broken web addresses."
+    },
+    "ad018b2a": {
+      "text": "Your live servers are up and reachable for the whole time your app is in review."
+    },
+    "d8c1c934": {
+      "text": "Any feature behind a login can be reached with a working demo account you provide, or through a demo mode."
+    },
+    "8aec4abb": {
+      "text": "Every in-app purchase is live, visible, and goes through as a real payment in the version you submit for review."
+    },
+    "a8af98d0": {
+      "text": "Your privacy policy is published, accurate, and can be opened from inside your app."
+    },
+    "cbadd44a": {
+      "text": "Your app gets people's consent before it collects any of their data."
+    },
+    "d93146ec": {
+      "text": "Every permission request shows a specific explanation (reason string) that names the actual feature that needs it."
+    },
+    "de8feace": {
+      "text": "If people can create an account in your app, they can also delete that account from inside the app."
+    },
+    "e3ffda7a": {
+      "text": "People can take back their consent, and your app still works for the features that aren't core."
+    },
+    "dd5fcc66": {
+      "text": "You know every piece of third party code (SDK) in your app and what it does with data, and you've declared all of it."
+    },
+    "4c84bc81": {
+      "text": "All sensitive data, such as passwords, login tokens and keys, is kept in the phone's secure storage (iOS Keychain, Android EncryptedSharedPreferences or Keystore), never in plain files, plain SharedPreferences or unencrypted databases."
+    },
+    "e64e5f5e": {
+      "text": "Face or fingerprint login (Face ID, Touch ID, BiometricPrompt) unlocks a secure encryption key, rather than just returning a simple yes or no that could be bypassed."
+    },
+    "3fe44e56": {
+      "text": "Your app checks on the device whether it's compromised, rooted or jailbroken (backed by Google Play Integrity on Android), and then blocks or carefully limits features on those devices."
+    },
+    "47b69fcc": {
+      "text": "All connections are encrypted with no unencrypted traffic allowed, and key server connections are locked to your server's known key (SPKI pinning) with valid backup keys set up."
+    },
+    "de2f51e3": {
+      "text": "Sensitive files like databases and saved login tokens are explicitly left out of automatic backups to iCloud or iTunes on iOS and ADB or Google Drive on Android."
+    },
+    "da4b988d": {
+      "text": "Anything coming into your app through a link (deep links, Universal Links, App Links) is treated as untrusted, cleaned and checked thoroughly. Your app also uses Universal Links (iOS) and verified App Links (Android), not custom link schemes that are easy to hijack."
+    },
+    "dd9c5b4d": {
+      "text": "Login uses a standard method (OAuth 2.1 or OIDC with PKCE) with no built-in secret keys, sessions time out, and logout or expiry wipes all saved tokens and data."
+    },
+    "b166c49b": {
+      "text": "Your app's name, description and screenshots match what the app really does."
+    },
+    "a5563f6e": {
+      "text": "Your screenshots show the app being used, not a loading or login screen."
+    },
+    "c745c1b3": {
+      "text": "Product page header and search result art show your app or brand, suit everyone, with no prices, discounts, unprovable claims or mentions of other apps (Apple 2.3.14, 16 October 2026)."
+    },
+    "55bf9331": {
+      "text": "Your app's name, subtitle and description aren't stuffed with extra search keywords."
+    },
+    "2050062a": {
+      "text": "You've answered the age or content rating questions honestly."
+    },
+    "e05f7b3c": {
+      "text": "Your listing doesn't mention the other platform or other app marketplaces."
+    },
+    "c181481a": {
+      "text": "Digital items and content are sold through the store's own payment system."
+    },
+    "2245ec0c": {
+      "text": "Before anyone buys a subscription, they can see its terms, how it renews, what it costs and how to cancel."
+    },
+    "0f6fb17c": {
+      "text": "Loot boxes and random rewards show the odds of winning before anyone pays."
+    },
+    "e843020f": {
+      "text": "Your Notes for Review explain every feature that isn't obvious and every in-app purchase."
+    },
+    "412eafcc": {
+      "text": "Your app has no hidden, inactive or undocumented features, and no remote switch that turns on anything App Review didn't see (Apple 2.5.19, bait-and-switch, 16 October 2026)."
+    },
+    "69c43a5c": {
+      "text": "Your App Store privacy labels match the data your app and its third-party code libraries (SDKs) really collect."
+    },
+    "000ed7d6": {
+      "text": "Apple's tracking permission prompt (App Tracking Transparency) appears before your app tracks people across other apps."
+    },
+    "4e09dfb9": {
+      "text": "If you offer login through another company's account, you also offer an equally private option such as Sign in with Apple."
+    },
+    "be681c5d": {
+      "text": "Your app uses no hidden Apple code that apps aren't allowed to call (private APIs), no outdated Apple tools that are being phased out (deprecated frameworks), and supports the current operating system versions."
+    },
+    "5153d531": {
+      "text": "Your app never downloads code that changes its features, and anything your server sends is data, not code."
+    },
+    "7251f70e": {
+      "text": "The background tasks your app says it runs (background modes) match what it really does when it's not on screen."
+    },
+    "ea2942da": {
+      "text": "Apple's new age rating questions (13+, 16+, 18+) are answered for every app."
+    },
+    "582a5f87": {
+      "text": "Any AI feature that could create sensitive content is limited by age."
+    },
+    "b751098a": {
+      "text": "Before any personal data goes to an outside AI service, a consent pop-up tells people which provider gets it and what kinds of data are shared."
+    },
+    "77cf88ed": {
+      "text": "If your app is in a regulated category, it's submitted under your company's legal entity and limited to certain regions where that's required."
+    },
+    "af5e408e": {
+      "text": "Your app name is 30 characters or fewer."
+    },
+    "1e915849": {
+      "text": "The contact phone number for App Review is in international format with the country code, like +852, not just digits."
+    },
+    "39d8733b": {
+      "text": "Your first consumable, first non-consumable, first auto-renewable subscription and first non-renewing subscription each go in with a new app version, never added alone to an approved version."
+    },
+    "d20c2639": {
+      "text": "Screenshots include at least one iPhone with Dynamic Island (medium display), at least one 13 inch iPad if you support iPad, and for watch apps one Apple Watch size used in every language, checked against App Store Connect's current specs."
+    },
+    "05007d2e": {
+      "text": "For iPhone Duo (ships 23 October 2026), you built with Xcode and iOS SDK 27.1 and tested outer, inner open and partly folded screens in every rotation in the simulator."
+    },
+    "6cd7dfb2": {
+      "text": "iPhone Duo screenshots are in App Store Connect (since 5 October 2026, earning the optimized for iPhone Duo badge; required from April 2027 on the iOS 27.1 SDK or later)."
+    },
+    "47110dab": {
+      "text": "On iPhone Duo, layout follows the available space (size classes, scene bounds), never device type, orientation or fixed screen sizes, and custom views avoid the cameras and fold."
+    },
+    "a067113a": {
+      "text": "On iPhone Duo, your top bars, toolbars and tab bars come from Apple's built-in containers, and every toolbar button has an icon and a title so it can sit vertically."
+    },
+    "0e0cd70a": {
+      "text": "Your build uses at least the minimum required SDK: the 26 SDKs today, and the 27 SDKs from April 2027."
+    },
+    "d6c138c9": {
+      "text": "Your Data Safety form matches what your app really does with data when it runs, including every SDK (add-on code library) in it. This is the top reason apps get rejected."
+    },
+    "7f1a867e": {
+      "text": "Every sensitive permission your app asks for has a qualifying core use and the required declaration."
+    },
+    "85d7d8ec": {
+      "text": "Background location, all files access, SMS, call log and AccessibilityService each tie to a core feature people can see, or they're removed."
+    },
+    "e009bba5": {
+      "text": "Your app targets the Android API level that Google Play currently requires."
+    },
+    "6629c11a": {
+      "text": "If you have a new personal developer account, you've finished a closed test with at least 12 testers over 14 days in a row."
+    },
+    "be8b6a3e": {
+      "text": "Digital goods sold inside your app go through Play Billing."
+    },
+    "fafdbe33": {
+      "text": "You've completed the IARC content rating questionnaire, the survey that sets your app's age rating."
+    },
+    "50da782e": {
+      "text": "Your store listing makes no claims your app can't deliver."
+    },
+    "c3a232ce": {
+      "text": "If your app is for children, it follows the Families policy and uses only ad SDKs that are Families certified."
+    },
+    "19fdeba6": {
+      "text": "You've declared and verified in App Store Connect whether you're a trader (selling as a business), since Apple removes apps without it from the EU App Store (17 February 2025)."
+    },
+    "89b11947": {
+      "text": "Any AI feature EU users can reach tells them in the app that they're dealing with AI, at or before their first use (2 August 2026)."
+    },
+    "0843facb": {
+      "text": "Audio, images, video or text your AI creates carry a visible AI-generated label plus one that software can read."
+    },
+    "a7c934c9": {
+      "text": "You keep a short record showing the team that builds or runs your AI feature understands AI basics (since 2 February 2025)."
+    },
+    "3a88b18b": {
+      "text": "Your app has none of the AI uses the EU bans, such as manipulating people, banned emotion reading or sorting people by biometric traits (since 2 February 2025)."
+    },
+    "a68f9536": {
+      "text": "Before personal data leaves the phone for an outside AI service, a consent screen names the provider and the kinds of data shared (Guideline 5.1.2(i), 13 November 2025)."
+    },
+    "e6df3907": {
+      "text": "Your app meets EN 301 549 and WCAG 2.1 AA, covering VoiceOver labels, Dynamic Type, contrast and Reduce Motion, and publishes the required accessibility information (Annex V) in your terms or a similar document (in force 28 June 2025)."
+    },
+    "949daf0c": {
+      "text": "EU alternative payments or offers: StoreKit External Purchases or Offers entitlement declared, disclosure sheet and monthly reporting live, In-App Purchase (when offered) shown at the same time and at least as prominently, chosen options kept 12 months (1 October 2026)."
+    },
+    "69716f68": {
+      "text": "In the EU, Kids category apps and users under the storefront's own parental-consent age (13, or higher where it sets one) see no out-of-app offers and get alternative payments only behind a parental gate. Older minors get both only behind one."
+    },
+    "d4a01175": {
+      "text": "If your app targets kids or collects under-13 data, you have verified parental consent, a separate opt-in for ads or third-party sharing, and written retention and security plans (22 April 2026)."
+    },
+    "6945a861": {
+      "text": "In Utah, Texas, Louisiana and Alabama, your app gets the store's age range (Declared Age Range API, Play Age Signals API, whose data never feeds ads, marketing, profiling or analytics), confirms parent consent for minors, and re-asks after major changes."
+    },
+    "6dcde7b1": {
+      "text": "Your age rating is 4-plus, 9-plus, 13-plus, 16-plus or 18-plus, never Unrated, and you've re-answered the age questionnaire (by 31 January 2026)."
+    },
+    "15311108": {
+      "text": "On the US storefront, you may link to outside websites without an entitlement or disclosure sheet. You can't offer other payment methods inside the app, and whether a commission applies is still unsettled."
+    },
+    "c8efa222": {
+      "text": "California and US states: privacy policy, notice at collection, rights to know, delete and correct, Do Not Sell or Share, Limit Use of Sensitive PI, and Global Privacy Control honored."
+    },
+    "906d4716": {
+      "text": "If your app captures biometric data, you get written consent first, publish how long you keep it and when you destroy it, and never sell it."
+    },
+    "291c80b3": {
+      "text": "If yours is a health app, you've checked whether HIPAA applies, and if not, you follow the FTC Health Breach Notification Rule with its 60-day breach notice."
+    },
+    "203848a9": {
+      "text": "You handle 18-plus downloads in Brazil, Australia and Singapore for Apple's block (24 February 2026) and Google Play's Brazil age checks via Play Age Signals API (from 17 March 2026)."
+    },
+    "137a671b": {
+      "text": "If children are likely to use your app in the UK, it has highly effective age checks and the Children's Code privacy defaults."
+    },
+    "0ffc7e72": {
+      "text": "If your app is an age-restricted social media platform in Australia, it checks whether users are under 16."
+    },
+    "b9cabc35": {
+      "text": "If you use alternative billing in South Korea, you ship a Korea-only version of the app with an approved payment provider."
+    },
+    "48a3ad79": {
+      "text": "For China, your app is filed with MIIT through a local company and follows China's privacy law (PIPL), and a game also holds a Banhao license."
+    },
+    "94e43c76": {
+      "text": "A Mac app shared outside the Mac App Store is signed with Developer ID and hardened runtime, checked by Apple (notarytool), and has that approval attached (stapler)."
+    },
+    "b0e61bf7": {
+      "text": "Your app isn't a thin wrapper with little of its own (Guideline 4.2), and it isn't a duplicate, a clone, or an app in an overcrowded category that doesn't stand out (Guideline 4.3, tightened June 2026)."
+    },
+    "79d6b672": {
+      "text": "A reader app using the External Link Account Entitlement meets every condition and link rule in Guideline 3.1.3(a), and offers no in-app purchases while it uses it."
+    },
+    "e1f0e6f5": {
+      "text": "If your app uses non-exempt encryption and is on the French App Store, its France ANSSI encryption declaration is uploaded in App Store Connect."
+    },
+    "49a5000e": {
+      "text": "The content rights question in App Store Connect is answered, and you can show proof you're allowed to use any third-party content."
+    },
+    "e89eb12d": {
+      "text": "visionOS apps have App Motion declared, and watchOS and tvOS apps are built with the platform 26 SDK and Xcode 26 (by 28 April 2026)."
+    },
+    "46a9fa4a": {
+      "text": "Fixed-odds betting apps offered in Brazil give a valid Secretariat of Prizes and Bets license in App Review Information, pick A18 for Brazil in the age-rating questionnaire, and go in as a new version for verification (since 8 May 2026)."
+    },
+    "3d47b22d": {
+      "text": "If your app reaches Brazil, Indonesia, Singapore or Thailand, your developer identity is verified (since 30 September 2026), and every app ID (package name) is registered in Play Console."
+    },
+    "731961f9": {
+      "text": "Every foreground service (a task your app keeps running with a visible notification) declares its type (foregroundServiceType) in the app's manifest with the matching permission, and each type is declared in the Play Console with a demo video."
+    },
+    "4ad479ec": {
+      "text": "Your app checks it's genuine with the Play Integrity API, verified on your server, and doesn't use SafetyNet Attestation."
+    },
+    "dba75462": {
+      "text": "New apps and updates use Play Billing Library 8 or later (since 31 August 2026, extension to 1 November 2026), and digital goods are sold through Play Billing."
+    },
+    "1764de00": {
+      "text": "New apps and updates have targetSdkVersion at least 36 (required since 31 August 2026, extension available to 1 November 2026). Wear OS and Android Automotive OS need at least 35, Android TV and Android XR at least 34."
+    },
+    "c825eb4e": {
+      "text": "No surprise full-screen ads appear at launch or in the middle of a task, and every full-screen ad can be closed within 15 seconds."
+    },
+    "35943382": {
+      "text": "A health app has the Health Apps Declaration, a core-feature reason for each Health Connect permission, the migrated Organization Account, and the right medical-device label or disclaimer."
+    },
+    "24acf804": {
+      "text": "A real-money game in supported countries has the needed licenses or self-declarations, location limits and age checks, and follows any relevant Play Age Signals API terms."
+    },
+    "ea3bbbbf": {
+      "text": "If your app serves US users and lets them post content, you have a written way to report to NCMEC's CyberTipline once you actually know of something reportable, and a policy to preserve it for 1 year."
+    },
+    "dc7e392c": {
+      "text": "If your app is social or has user posts, it has content filter, in-app reporting and blocking, published contact details, 24-hour removal of content and offenders (Apple 1.2), and meets Google Play's Child Safety Standards for Social and Dating apps."
+    },
+    "95961f72": {
+      "text": "If your app creates accounts, people can delete their account and data in the app and through a public web link, and both are declared."
+    },
+    "68bb5b00": {
+      "text": "You aren't on the US sanctions list (OFAC SDN list), and your app isn't available in embargoed territories."
+    },
+    "49a7d90f": {
+      "text": "If you release in Syria, you've written down which US export rules (EAR) apply, how your app is classified, and which license or license exception you rely on."
+    },
+    "984ca17c": {
+      "text": "Your own card payments for real goods use strong checks (PSD2 SCA, 3D Secure) in the EU or UK, keep no card numbers, and match the right PCI form (SAQ)."
+    },
+    "824f4611": {
+      "text": "Your Apple Developer Program membership shows Active, not Pending, and you enrolled six weeks before your first submission, since verification takes two to six weeks and support is slow."
+    },
+    "0ddcf583": {
+      "text": "Your Account Holder has accepted every Apple developer agreement update and attachment, including Brazil's Attachment 12 (due 6 July 2026) and the EU's Attachment 14 (before 1 October 2026)."
+    },
+    "5bde0051": {
+      "text": "If you're moving from an individual to an organization account, you started a quarter ahead (one migration was reported still open after 61 days on 1 September 2026)."
+    },
+    "e18c41f0": {
+      "text": "You've answered the social media feature question in App Store Connect before uploading a new version."
+    },
+    "0176f94e": {
+      "text": "If your app is financial, health, VPN or government, your Google Play account is an Organization account with a D-U-N-S business number (30 September 2026)."
+    },
+    "52dc49ba": {
+      "text": "Every app ID (package name) you distribute on Google Play is registered for Android developer verification (30 September 2026)."
+    },
+    "dfcb6304": {
+      "text": "Your Google Play content rating questionnaire is complete and up to date, since apps without a rating aren't allowed."
+    },
+    "906ef26e": {
+      "text": "If you're enrolled in US alternative billing or external links, your transaction reporting is set up and working (1 October 2026)."
+    }
+  }
+}

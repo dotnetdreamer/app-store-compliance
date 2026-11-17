@@ -64,6 +64,9 @@ jobs:
           bash scripts/validate-privacy-manifest-test.sh
           bash scripts/verify-citations-test.sh
 
+      - name: Plain-language file and its script
+        run: python3 scripts/test-plain-language.py
+
       - name: Timeline and deadline checker tests
         run: |
           python3 scripts/test-generate-timeline.py

@@ -2,7 +2,9 @@
 *.log
 node_modules/
 .vercel/
-.claude/
+# Claude Code's local files stay out; the project's skills are shared.
+.claude/*
+!.claude/skills/
 __pycache__/
 *.pyc
 RELEASE-READINESS-REPORT.md
