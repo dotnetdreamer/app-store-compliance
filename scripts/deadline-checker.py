@@ -3,12 +3,20 @@
 Prints active/passed deadlines and upcoming ones within 90 days.
 This script implements the automatic warning system for regulatory deadlines."""
 
+import argparse
 import json
 import os
 import sys
 from datetime import datetime, timezone
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# A deadline can name a law outside ASCII. On Windows a piped stdout is the
+# locale encoding, so the report would stop at the first such name.
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        _stream.reconfigure(encoding="utf-8", errors=_stream.errors)
+
 DEADLINES_FILE = os.environ.get(
     "DEADLINES_FILE", os.path.join(ROOT, "data", "regulatory-deadlines.json")
 )
@@ -21,7 +29,7 @@ def load_deadlines():
         )
         return []
     try:
-        with open(DEADLINES_FILE, "r") as f:
+        with open(DEADLINES_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
             return data.get("deadlines", [])
     except Exception as e:
@@ -65,7 +73,20 @@ def print_brief(passed, upcoming, absorbed, skipped=0):
     return 0
 
 
+def platform_set(value):
+    platforms = {name.strip().lower() for name in value.split(",")}
+    unknown = platforms - {"ios", "android", "web"}
+    if unknown:
+        supplied = ", ".join(sorted(repr(name) for name in unknown))
+        raise argparse.ArgumentTypeError(f"unknown platform {supplied}; use ios, android, or web")
+    return platforms
+
+
 def main():
+    parser = argparse.ArgumentParser(description="Report approaching and overdue app deadlines.")
+    parser.add_argument("--brief", action="store_true", help="print one line per deadline")
+    parser.add_argument("--platforms", type=platform_set, help="limit store-specific deadlines to a comma-separated platform list")
+    args = parser.parse_args()
     deadlines = load_deadlines()
     if not deadlines:
         print("No deadlines loaded.")
@@ -130,14 +151,14 @@ def main():
             upcoming_deadlines.append(item)
 
     skipped = 0
-    if "--platforms" in sys.argv[1:-1]:
-        platforms = set(sys.argv[sys.argv.index("--platforms") + 1].lower().split(","))
+    if args.platforms is not None:
+        platforms = args.platforms
         before = len(passed_deadlines) + len(upcoming_deadlines)
         passed_deadlines = [d for d in passed_deadlines if not other_store(d, platforms)]
         upcoming_deadlines = [d for d in upcoming_deadlines if not other_store(d, platforms)]
         skipped = before - len(passed_deadlines) - len(upcoming_deadlines)
 
-    if "--brief" in sys.argv[1:]:
+    if args.brief:
         return print_brief(passed_deadlines, upcoming_deadlines, absorbed_deadlines, skipped)
 
     if passed_deadlines or upcoming_deadlines:

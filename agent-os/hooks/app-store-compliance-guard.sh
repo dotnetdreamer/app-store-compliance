@@ -4,6 +4,8 @@
 # @event: PreToolUse
 # @matcher: Bash
 set -uo pipefail
+# Reads all its input. grep -q stops early, and under pipefail its producer's SIGPIPE turns a match into a miss.
+grep_q() { grep "$@" >/dev/null; }
 
 HOOK_LOG="${HOME:-}/.claude/hooks/hook-log.sh"
 # shellcheck disable=SC1090
@@ -13,7 +15,7 @@ log_err() { if type hlog_error >/dev/null 2>&1; then hlog_error "app-store-compl
 CRIT=0; HIGH=0; MED=0; ANY_IOS=0; ANY_AND=0; ANY_NATIVE=0; ANY_RN=0; ANY_WEB=0; ANY_NEEDS_NATIVE=0; NATIVE_HINT=""; UNCHECKED=""; EXPO_READ=0
 FILELIST=""
 REPORT=""; REPORT_DEGRADED=0
-cleanup() { [ -n "$FILELIST" ] && rm -f "$FILELIST" "$FILELIST.blob" "$FILELIST.manifest" "$FILELIST.code" "$FILELIST.impl" 2>/dev/null; [ -n "$REPORT" ] && rm -f "$REPORT" 2>/dev/null; true; }
+cleanup() { [ -n "$FILELIST" ] && rm -f "$FILELIST" "$FILELIST.blob" "$FILELIST.manifest" "$FILELIST.code" "$FILELIST.impl" "$FILELIST.ship" 2>/dev/null; [ -n "$REPORT" ] && rm -f "$REPORT" 2>/dev/null; true; }
 trap cleanup EXIT
 
 # ----- resolve mode and project dir -----
@@ -32,7 +34,7 @@ elif [ ! -t 0 ]; then
 fi
 # Cursor beforeShellExecution reads a permission object on stdout, prose there is a schema error (cursor.com/docs/hooks).
 IS_CURSOR=0; CURSOR_SENT=0; CURSOR_FD=0; CURSOR_IDS=""
-printf '%s' "$STDIN_JSON" | tr -d '\n\r' | grep -qE '"hook_event_name"[[:space:]]*:[[:space:]]*"beforeShellExecution"' && IS_CURSOR=1
+printf '%s' "$STDIN_JSON" | tr -d '\n\r' | grep -E '"hook_event_name"[[:space:]]*:[[:space:]]*"beforeShellExecution"' >/dev/null && IS_CURSOR=1
 cursor_reply() {  # $1 exit code about to be returned. Prints the permission JSON once, on the real stdout
   [ "$IS_CURSOR" -eq 1 ] && [ "$CURSOR_SENT" -eq 0 ] || return 0
   CURSOR_SENT=1
@@ -231,17 +233,17 @@ ta'; }
     [ -z "$lane" ] && return 1
     case "$lane" in '$'*|'`'*) return 0 ;; esac
     case "$lane" in *[!A-Za-z0-9_]*) return 1 ;; esac
-    printf '%s' "$lane" | tr '_' '\n' | grep -qixE 'release|beta|deploy|production|prod|publish|submit|upload|appstore|playstore|testflight|distribute' && return 0
+    printf '%s' "$lane" | tr '_' '\n' | grep -ixE 'release|beta|deploy|production|prod|publish|submit|upload|appstore|playstore|testflight|distribute' >/dev/null && return 0
     while IFS= read -r ff; do
       [ -f "$ff" ] || continue
       awk -v n="$lane" '$0 ~ "lane[[:space:]]+:" n "([^A-Za-z0-9_]|$)" { on=1; next } on && /^[[:space:]]*(private_)?lane[[:space:]]+:/ { on=0 } on' "$ff" 2>/dev/null \
-        | grep -qE "$UPLOAD_ACTION_RE" && return 0
+        | grep -E "$UPLOAD_ACTION_RE" >/dev/null && return 0
     done <<FASTFILES
 $(find "$DIR" -maxdepth 3 -name Fastfile -not -path '*/node_modules/*' 2>/dev/null | head -5)
 FASTFILES
     return 1
   }
-  submits() { set -- "$(fl_norm "$1")"; printf '%s' "$1" | grep -qiE "$SUBMIT_RE" || printf '%s' "$1" | grep -qE 'gradlew?[[:space:]]+\$' || fastlane_lane_submits "$1"; }
+  submits() { set -- "$(fl_norm "$1")"; printf '%s' "$1" | grep_q -iE "$SUBMIT_RE" || printf '%s' "$1" | grep_q -E 'gradlew?[[:space:]]+\$' || fastlane_lane_submits "$1"; }
   # What a package script or a make target runs, one level deep, so a wrapped submit is still seen.
   runner_body() {  # $1 one command segment
     local name esc sub pj seg w prev mf targets mfiles
@@ -266,7 +268,7 @@ FASTFILES
       [ -z "$sel" ] && sel="$(printf '%s' "$rseg" | sed -nE 's/.*nx[^;&|]*[[:space:]]run[[:space:]]+([A-Za-z0-9_.@\/-]+):.*/\1/p' | head -1)"
       sub="$(printf '%s' "$rseg" | sed -nE 's/.*[[:space:]](--dir|--prefix|--cwd|-C)[=[:space:]]+([^[:space:]]+).*/\2/p' | head -1)"
       case "$sub" in /*|*..*) sub="" ;; esac
-      all=0; printf '%s' "$rseg" | grep -qE '(^|[^A-Za-z0-9_./-])(turbo|lerna)[[:space:]]|(^|[^A-Za-z0-9_./-])nx[[:space:]]|[[:space:]](-r|--recursive|-ws|--workspaces|foreach)([[:space:]=]|$)' && all=1
+      all=0; printf '%s' "$rseg" | grep_q -E '(^|[^A-Za-z0-9_./-])(turbo|lerna)[[:space:]]|(^|[^A-Za-z0-9_./-])nx[[:space:]]|[[:space:]](-r|--recursive|-ws|--workspaces|foreach)([[:space:]=]|$)' && all=1
       files="$(find "$DIR" -maxdepth 6 \( -type d \( -name node_modules -o -name .git -o -name Pods -o -name build \) -prune \) -o \( -name package.json -o -name project.json \) -print 2>/dev/null | head -200)"
       if [ -n "$sub" ] && [ -f "$DIR/$sub/package.json" ]; then pick="$DIR/$sub/package.json"
       elif [ -n "$sel" ]; then
@@ -282,7 +284,7 @@ FASTFILES
           one="$(printf '%s\n' "$files" | while IFS= read -r f; do
             [ -n "$f" ] || continue; d="$(dirname "$f")"
             if [ "$scoped" -eq 0 ] && { [ "${d##*/}" = "$base" ] || [ "${d%/$s2}" != "$d" ]; }; then echo "$f"; continue; fi
-            tr -d '\n' < "$f" 2>/dev/null | grep -qE "\"name\"[[:space:]]*:[[:space:]]*\"$pat\"" && echo "$f"
+            tr -d '\n' < "$f" 2>/dev/null | grep -E "\"name\"[[:space:]]*:[[:space:]]*\"$pat\"" >/dev/null && echo "$f"
           done)"
           if [ -z "$one" ]; then pick="$files"; break; fi
           pick="$pick
@@ -324,8 +326,8 @@ SELS
     done
   }
   # Cheap exit for the everyday command. Nothing below runs unless a submit tool or a wrapper is named.
-  if ! printf '%s' "$CMD_MATCH" | grep -qiE "$SUBMIT_RE" \
-    && ! printf '%s' "$CMD_MATCH" | grep -qE '(^|[^A-Za-z0-9_./-])(fastlane|npm|pnpm|bun|yarn|make|turbo|nx|lerna)[[:space:]]|gradlew?[[:space:]]+\$'; then
+  if ! printf '%s' "$CMD_MATCH" | grep_q -iE "$SUBMIT_RE" \
+    && ! printf '%s' "$CMD_MATCH" | grep_q -E '(^|[^A-Za-z0-9_./-])(fastlane|npm|pnpm|bun|yarn|make|turbo|nx|lerna)[[:space:]]|gradlew?[[:space:]]+\$'; then
     exit 0
   fi
   DIR="${CLAUDE_PROJECT_DIR:-}"
@@ -340,7 +342,7 @@ SELS
   # The target must resolve inside the project root, otherwise the root is scanned as before.
   FIRST="$(printf '%s' "$CMD" | head -1)"
   CD_COUNT="$(printf '%s' "$CMD" | grep -oE '(^|[;&|(][[:space:]]*)(cd|pushd|popd|source|\.)[[:space:]]' | wc -l | tr -d ' ')"
-  if [ "$CD_COUNT" -eq 1 ] && printf '%s' "$FIRST" | grep -qE '^[[:space:]]*cd[[:space:]]+[^&|;]+(&&|;)'; then
+  if [ "$CD_COUNT" -eq 1 ] && printf '%s' "$FIRST" | grep_q -E '^[[:space:]]*cd[[:space:]]+[^&|;]+(&&|;)'; then
     TARGET="$(printf '%s' "$FIRST" | sed -E 's/^[[:space:]]*cd[[:space:]]+//; s/[[:space:]]*(&&|;).*$//; s/^"(.*)"$/\1/; s/^'"'"'(.*)'"'"'$/\1/')"
     TARGET="${TARGET//\$\{CLAUDE_PROJECT_DIR\}/$DIR}"; TARGET="${TARGET//\$CLAUDE_PROJECT_DIR/$DIR}"
     case "$TARGET" in /*) ;; '~'*) TARGET="${HOME:-}${TARGET#\~}" ;; *) TARGET="$DIR/$TARGET" ;; esac
@@ -368,26 +370,26 @@ if [ -n "$CMD" ]; then
   SEG_SUBMITS=0; SEG_ALL_AND=1
   # Beside an Android submit only a known harmless command keeps it Android only. Anything else may upload to Apple.
   SAFE_SEG_RE='^(cd|pushd|popd|echo|printf|export|unset|set|true|false|:|test|sleep|ls|pwd|mkdir|rm|cp|mv|cat|touch|tee|grep|head|tail|wc|date|clear)$'
-  SUBST=0; printf '%s' "$CMD" | grep -qE '\$\(|`|<\(|>\(|=\(' && SUBST=1
+  SUBST=0; printf '%s' "$CMD" | grep_q -E '\$\(|`|<\(|>\(|=\(' && SUBST=1
   while IFS= read -r SEG; do
     W1="$(printf '%s' "$SEG" | awk '{ sub(/^[ \t({!]+/, ""); while (match($0, /^[A-Za-z_][A-Za-z0-9_]*=[^ \t]*[ \t]+/)) $0 = substr($0, RLENGTH + 1); print $1 }')"
     [ -n "$W1" ] || continue
     if ! submits "$SEG"; then
-      { [ "$SUBST" -eq 0 ] && printf '%s' "$W1" | grep -qE "$SAFE_SEG_RE"; } || SEG_ALL_AND=0
+      { [ "$SUBST" -eq 0 ] && printf '%s' "$W1" | grep_q -E "$SAFE_SEG_RE"; } || SEG_ALL_AND=0
       continue
     fi
     SEG_SUBMITS=$((SEG_SUBMITS+1))
     SEGN="$(fl_norm "$SEG")"
-    { printf '%s' "$SEGN" | grep -qiE "$AND_TARGET_RE" && ! printf '%s' "$SEGN" | grep -qiE "$IOS_TARGET_RE"; } || SEG_ALL_AND=0
+    { printf '%s' "$SEGN" | grep_q -iE "$AND_TARGET_RE" && ! printf '%s' "$SEGN" | grep_q -iE "$IOS_TARGET_RE"; } || SEG_ALL_AND=0
   done <<SEGS
 $(printf '%s\n' "$CMD_MATCH" | tr ';&|' '\n\n\n')
 SEGS
-  if printf '%s' "$CMD" | grep -qiE "$IOS_TARGET_RE"; then
+  if printf '%s' "$CMD" | grep_q -iE "$IOS_TARGET_RE"; then
     :   # an Apple word anywhere in the command keeps the Apple checks, as on main
   elif [ "$SEG_SUBMITS" -gt 0 ]; then
     [ "$SEG_ALL_AND" -eq 1 ] && CMD_TARGET_ANDROID_ONLY=1
   # A wrapped submit (npm run, make) names no tool in the command itself, so the whole command decides, as before.
-  elif printf '%s' "$CMD" | grep -qiE "$AND_TARGET_RE" && ! printf '%s' "$CMD" | grep -qiE "$IOS_TARGET_RE"; then
+  elif printf '%s' "$CMD" | grep_q -iE "$AND_TARGET_RE" && ! printf '%s' "$CMD" | grep_q -iE "$IOS_TARGET_RE"; then
     CMD_TARGET_ANDROID_ONLY=1
   fi
   # Each command in the line is read twice, quoted text kept and quoted text blanked, # comments dropped. A submit is found
@@ -408,14 +410,14 @@ SEGS
       [ -n "$NQW" ] || continue
       if submits "$NQK"; then
         NQ_SUB=$((NQ_SUB+1))
-        printf '%s' "$NQB" | grep -qiE "$AND_TARGET_RE" || NQ_AND=0
+        printf '%s' "$NQB" | grep_q -iE "$AND_TARGET_RE" || NQ_AND=0
         # the outer arguments of bash -c, sh -c or eval never reach the quoted command, so they name no target
-        printf '%s' "$NQB" | grep -qE '(^|[[:space:]/])(bash|sh|zsh|dash|ksh|fish|eval)([[:space:]]|$)' && NQ_AND=0
+        printf '%s' "$NQB" | grep_q -E '(^|[[:space:]/])(bash|sh|zsh|dash|ksh|fish|eval)([[:space:]]|$)' && NQ_AND=0
         # a submit seen only inside quotes runs in another program (python -c, ruby -e), which never passes it the outer arguments
         submits "$NQB" || NQ_AND=0
-      elif ! printf '%s' "$NQW" | grep -qE "$SAFE_SEG_RE"; then
+      elif ! printf '%s' "$NQW" | grep_q -E "$SAFE_SEG_RE"; then
         NQ_AND=0; NQ_WRAP=$((NQ_WRAP+1))
-        printf '%s' "$NQB" | grep -qiE "$AND_TARGET_RE" || NQ_WRAP_AND=0
+        printf '%s' "$NQB" | grep_q -iE "$AND_TARGET_RE" || NQ_WRAP_AND=0
       fi
     done <<NQSEGS
 $CMD_PAIRS
@@ -429,13 +431,13 @@ NQSEGS
   fi
 fi
 # Android only also needs the 1.0.0 rule, so the Apple checks are never off where 1.0.0 ran them.
-if [ "$CMD_TARGET_ANDROID_ONLY" -eq 1 ] && ! { printf '%s' "$CMD" | grep -qiE 'build[[:space:]]+(apk|appbundle)\b|assembleRelease|bundleRelease|run-android|run:android|--platform[[:space:]]+android\b|capacitor[[:space:]]+android\b|-buildtarget[[:space:]]+android|net[0-9.]+-android|tauri[[:space:]]+android\b' \
-  && ! printf '%s' "$CMD" | grep -qiE '\bios\b|\bipa\b|xcodebuild|altool|notarytool'; }; then
+if [ "$CMD_TARGET_ANDROID_ONLY" -eq 1 ] && ! { printf '%s' "$CMD" | grep_q -iE 'build[[:space:]]+(apk|appbundle)\b|assembleRelease|bundleRelease|run-android|run:android|--platform[[:space:]]+android\b|capacitor[[:space:]]+android\b|-buildtarget[[:space:]]+android|net[0-9.]+-android|tauri[[:space:]]+android\b' \
+  && ! printf '%s' "$CMD" | grep_q -iE '\bios\b|\bipa\b|xcodebuild|altool|notarytool'; }; then
   CMD_TARGET_ANDROID_ONLY=0
 fi
 CMD_TARGET_IOS_ONLY=0
-if [ -n "$CMD" ] && printf '%s' "$CMD" | grep -qiE '(-p|--platform)[[:space:]=]+ios([^A-Za-z]|$)' \
-  && ! printf '%s' "$CMD" | grep -qiE 'android|(-p|--platform)[[:space:]=]+all'; then
+if [ -n "$CMD" ] && printf '%s' "$CMD" | grep_q -iE '(-p|--platform)[[:space:]=]+ios([^A-Za-z]|$)' \
+  && ! printf '%s' "$CMD" | grep_q -iE 'android|(-p|--platform)[[:space:]=]+all'; then
   CMD_TARGET_IOS_ONLY=1
 fi
 
@@ -466,6 +468,14 @@ manifest_has() {  # 0 if regex found in any AndroidManifest.xml in the source li
   [ -s "$FILELIST" ] || return 1
   local out
   out="$(grep '/AndroidManifest\.xml$' "$FILELIST" | tr '\n' '\0' | xargs -0 grep -EIls -e "$1" 2>/dev/null | head -1)"
+  [ -n "$out" ]
+}
+
+APPLE_SRC_RE='[.](swift|m|mm|h)$'
+apple_has() {  # 0 if regex found in a Swift or Objective-C source. Compose, Flutter and JS share names like Image( and Button
+  [ -s "$FILELIST" ] || return 1
+  local out
+  out="$(grep -E "$APPLE_SRC_RE" "$FILELIST" | tr '\n' '\0' | xargs -0 grep -EIls -e "$1" 2>/dev/null | head -1)"
   [ -n "$out" ]
 }
 
@@ -540,36 +550,51 @@ own_privacy_manifest() {
 # build compiles is not flagged. The string-literal requirement (the match must sit inside "...")
 # skips comments and identifiers. This is what makes the backend check precise instead of matching
 # a localhost mentioned in a comment or guarded behind DEBUG. Without it the check cries wolf.
+ship_has() {  # grep_has over the files that ship. Test files are left out when nothing imports them
+  [ "${SHIPLIST:-$FILELIST}" = "$FILELIST" ] && { grep_has "$1"; return; }
+  [ -s "$SHIPLIST" ] || return 1
+  # Test the output, not the exit code. xargs splits a long list into batches, and one batch
+  # with no match would otherwise make the whole pipeline fail under pipefail.
+  [ -n "$(tr '\n' '\0' < "$SHIPLIST" | xargs -0 grep -EIl -e "$1" 2>/dev/null | head -n 1)" ]
+}
+# RELEASE_HIT is set to the file and line of the string that matched, for the finding to name (issue #2397).
 release_string_has() {
+  RELEASE_HIT=""
   [ -s "$FILELIST" ] || return 1
-  local f
+  local f m
   while IFS= read -r f; do
+    # Removed lines print empty, so a line number counts the lines of a DEBUG block too.
     case "$f" in
       *.swift)
-        awk '
-          /^[ \t]*#if/    { d++; if ($0 ~ /#if[ \t]+DEBUG/ || $0 ~ /#if[ \t]+!RELEASE/) { dbg=d; skip=1 } next }
-          /^[ \t]*#else/  { if (skip && d==dbg) skip=0; next }
-          /^[ \t]*#elseif/ { next }
-          /^[ \t]*#endif/ { if (skip && d==dbg) { skip=0; dbg=0 } d--; next }
-          !skip { print }
-        ' "$f" 2>/dev/null ;;
-      *) cat "$f" 2>/dev/null ;;
+        m="$(awk '
+          /^[ \t]*#if/    { d++; if ($0 ~ /#if[ \t]+DEBUG/ || $0 ~ /#if[ \t]+!RELEASE/) { dbg=d; skip=1 } print ""; next }
+          /^[ \t]*#else/  { if (skip && d==dbg) skip=0; print ""; next }
+          /^[ \t]*#elseif/ { print ""; next }
+          /^[ \t]*#endif/ { if (skip && d==dbg) { skip=0; dbg=0 } d--; print ""; next }
+          skip { print ""; next }
+          { print }
+        ' "$f" 2>/dev/null | LC_ALL=C grep -aEn "\"[^\"]*($1)[^\"]*\"" 2>/dev/null)" ;;
+      *) m="$(LC_ALL=C grep -aEn "\"[^\"]*($1)[^\"]*\"" "$f" 2>/dev/null)" ;;
     esac
-  done < "$FILELIST" \
-    | LC_ALL=C grep -E "\"[^\"]*($1)[^\"]*\"" >/dev/null 2>&1
-  # NOTE. no `grep -q`. With `set -o pipefail`, `grep -q` exits on the first match and
-  # closes the pipe, so the still-writing awk/cat producer gets SIGPIPE (141) and pipefail
-  # then reports the whole pipeline non-zero even though grep matched. That made this check
-  # silently miss on the CI runner (GNU grep, timing-dependent) while passing on a fast local
-  # machine. Draining all input with plain grep and returning its status is deterministic.
+    # NOTE. no `grep -q` or `-m 1`. Either one stops reading early, the awk producer gets SIGPIPE,
+    # and pipefail reports a miss though grep matched (timing-dependent, seen on the CI runner).
+    # Plain grep drains its input. Only the captured output is read, never the exit status.
+    if [ -n "$m" ]; then RELEASE_HIT="${f#"${DIR%/}"/}:${m%%:*}"; return 0; fi
+  done < "${SHIPLIST:-$FILELIST}"
+  return 1
 }
 
-# Prints the first file and line that match, relative to the scanned folder. $1 is src or manifest.
+# Prints the first file and line that match, relative to the scanned folder. $1 is src, ship, manifest or apple.
+# ship reads SHIPLIST, so a check that leaves test files out never names one (issue #2397).
 hit_file() {
   [ -s "$FILELIST" ] || return 0
   local f n
   if [ "$1" = "manifest" ]; then
     f="$(grep '/AndroidManifest[.]xml$' "$FILELIST" | tr '\n' '\0' | xargs -0 grep -EIls -e "$2" 2>/dev/null | head -1)"
+  elif [ "$1" = "ship" ]; then
+    f="$(tr '\n' '\0' < "${SHIPLIST:-$FILELIST}" | xargs -0 grep -EIls -e "$2" 2>/dev/null | head -1)"
+  elif [ "$1" = "apple" ]; then
+    f="$(grep -E "$APPLE_SRC_RE" "$FILELIST" | tr '\n' '\0' | xargs -0 grep -EIls -e "$2" 2>/dev/null | head -1)"
   else
     f="$(tr '\n' '\0' < "$FILELIST" | xargs -0 grep -EIls -e "$2" 2>/dev/null | head -1)"
   fi
@@ -580,11 +605,11 @@ hit_file() {
 
 # Findings are held and printed by flush_findings, critical first (issue #842).
 F_CRIT=(); F_HIGH=(); F_MED=(); FOUND_IDS=""; POOL_PASS=0
-finding() {  # severity id title fix [src|manifest regex]. The optional pair names the file that triggered it.
+finding() {  # severity id title fix [src|manifest regex | at file:line]. The optional pair names the file that triggered it.
   local t w=""
   case "$FOUND_IDS" in *"|$1:$2|"*) [ "$POOL_PASS" -eq 1 ] && return 0 ;; esac
   FOUND_IDS="$FOUND_IDS|$1:$2|"
-  [ -n "${5:-}" ] && w="$(hit_file "$5" "${6:-}")"
+  case "${5:-}" in at) w="${6:-}" ;; ?*) w="$(hit_file "$5" "${6:-}")" ;; esac
   case "$1" in
     critical) CRIT=$((CRIT+1)); t="  [CRITICAL] $2  $3" ;;
     high)     HIGH=$((HIGH+1)); t="  [HIGH]     $2  $3" ;;
@@ -619,12 +644,20 @@ find_tree() {  # find "$DIR" <expr>, the whole tree as before, minus the nested 
   if [ "${#NESTED_PRUNE[@]}" -eq 0 ]; then find "$DIR" "$@" 2>/dev/null
   else find "$DIR" \( -type d \( -name '' "${NESTED_PRUNE[@]}" \) -prune \) -o "$@" 2>/dev/null; fi
 }
+# A hook lets an unchecked submit through by default. APP_STORE_GUARD_BLOCK_UNCHECKED=1 stops it instead.
+block_unchecked() {
+  [ "${APP_STORE_GUARD_BLOCK_UNCHECKED:-0}" = "1" ] || return 0
+  if declare -F emit_report >/dev/null; then
+    echo "BLOCKED. Nothing was checked, and APP_STORE_GUARD_BLOCK_UNCHECKED=1 is set."; emit_report 2
+  else cursor_reply 2; fi
+  echo "$1 Blocked because APP_STORE_GUARD_BLOCK_UNCHECKED=1." >&2; exit 2
+}
 FILELIST="$(mktemp 2>/dev/null)" || FILELIST=""
 { [ -n "$FILELIST" ] && : > "$FILELIST" 2>/dev/null; } || FILELIST="/tmp/ascg.$$"
 # No scan buffer means no scan. Say so rather than end CLEAR on an empty file list.
 if [ -z "$FILELIST" ] || ! : > "$FILELIST" 2>/dev/null; then
   NOTE="NOT CHECKED. The guard could not create its scan buffer in ${TMPDIR:-/tmp}, so nothing was scanned. Point TMPDIR at a writable folder and run it again."
-  if [ -n "$STDIN_JSON" ]; then echo "app-store-compliance-guard. $NOTE" >&2; cursor_reply 0; exit 0; fi
+  if [ -n "$STDIN_JSON" ]; then block_unchecked "$NOTE"; echo "app-store-compliance-guard. $NOTE" >&2; cursor_reply 0; exit 0; fi
   echo "$NOTE"; exit 1
 fi
 SCAN_ERROR=""
@@ -684,6 +717,39 @@ find "$DIR" -mindepth 1 \
   -o -name '*.cs' -o -name '*.rs' -o -name '*.csproj' -o -name '*.xaml' -o -name '*.toml' \
   \) -print 2>/dev/null \
   > "$FILELIST" || : 2>/dev/null >> "$FILELIST" || SCAN_ERROR="the file list could not be written to $FILELIST"
+# JS and TS test files (*.test.ts, *.spec.tsx) sit next to the code they test and never ship, unless
+# app code or a web page names one (an import, a require, a <script src>). Then every test file stays.
+JS_TEST_RE='[.](test|spec)[.][jt]sx?$'
+# Vue, Svelte, Astro, .mjs and .cjs files are not in the source list, so they are found here, outside test folders.
+# A glob or context import (import.meta.glob, require.context) can bundle a test file unnamed, so it keeps them too.
+TEST_IMPORTERS="$({ grep -E '[.]([cm]?[jt]sx?|html?|vue|svelte|astro)$' "$FILELIST" 2>/dev/null | grep -vE "$JS_TEST_RE"
+  find "$DIR" -mindepth 1 -maxdepth 8 \( -type d \( -name node_modules -o -name .git -o -name Pods -o -name build -o -name dist -o -name DerivedData -o -name vendor \
+    -o -name '*Tests' -o -name androidTest -o -name __tests__ -o -name test -o -name tests -o -name integration_test -o -name e2e \) -prune \) \
+    -o -type f \( -name '*.vue' -o -name '*.svelte' -o -name '*.astro' -o -name '*.html' -o -name '*.htm' -o -name '*.mjs' -o -name '*.cjs' \) -print 2>/dev/null; } \
+  | tr '\n' '\0' | xargs -0 grep -EIl -e "['\"\`][^'\"\`]*[.](test|spec)([.][cm]?[jt]sx?)?([?#][^'\"\`]*)?['\"\`]" -e "=[[:space:]]*[^[:space:]>='\"\`]*[.](test|spec)[.][cm]?[jt]sx?([?#][^[:space:]>]*)?([[:space:]>]|$)" -e 'import[.]meta[.]glob|require[.]context' 2>/dev/null || true)"
+# Expo Router bundles every file under app/ as a route, test files included, so those stay.
+ROUTE_KEEP='^$'
+grep '/package[.]json$' "$FILELIST" 2>/dev/null | tr '\n' '\0' | xargs -0 grep -Il '"expo-router"' 2>/dev/null | grep . >/dev/null && ROUTE_KEEP='/app/'
+# Test files stay in the source list, so they still count as evidence the way they always did.
+# Only the release-string checks (staging host, placeholder text) read SHIPLIST, which leaves them out.
+# CI config, end-to-end flows and npm scripts never ship either, imported or not (issue #2397).
+# Matched below the project root, so a project that itself sits in a folder named e2e is still read.
+NOSHIP_RE='(^|/)([.]github|[.]circleci|[.]gitlab|[.]buildkite|[.]maestro|__e2e__|e2e)/|(^|/)([.]gitlab-ci|bitrise|codemagic|[.]travis|azure-pipelines)[.]ya?ml$'
+# package.json ships only when code imports or requires it. Any path naming package.json counts, an
+# extensionless one through a relative or alias path. Vue, Svelte, Astro and .mjs files are not in the source list, so they are found here too.
+{ grep -v '/package[.]json$' "$FILELIST" 2>/dev/null
+  find "$DIR" -mindepth 1 -maxdepth 8 \( -type d \( -name node_modules -o -name .git -o -name Pods -o -name build -o -name dist -o -name DerivedData -o -name vendor \) -prune \) \
+    -o -type f \( -name '*.vue' -o -name '*.svelte' -o -name '*.astro' -o -name '*.mjs' -o -name '*.cjs' \) -print 2>/dev/null; } \
+  | tr '\n' '\0' | xargs -0 grep -IlE "['\"\`]([^'\"\`]*package[.]json|[^'\"\`]*/package)([?][^'\"\`]*)?['\"\`]" 2>/dev/null | grep . >/dev/null \
+  || NOSHIP_RE="$NOSHIP_RE|(^|/)package[.]json\$"
+SHIP_TEST_RE='^$'
+[ -z "$TEST_IMPORTERS" ] && SHIP_TEST_RE="$JS_TEST_RE"
+SHIPLIST="$FILELIST"
+if awk -v root="${DIR%/}/" -v n="$NOSHIP_RE" -v t="$SHIP_TEST_RE" -v k="$ROUTE_KEEP" \
+     '{ p = (index($0, root) == 1) ? substr($0, length(root) + 1) : $0 } (p !~ n && $0 !~ t) || $0 ~ k' \
+     "$FILELIST" > "$FILELIST.ship" 2>/dev/null && ! cmp -s "$FILELIST" "$FILELIST.ship"; then
+  SHIPLIST="$FILELIST.ship"
+fi
 build_blob
 CODE_STATE=""
 
@@ -741,11 +807,57 @@ echo ""
 if grep_has 'appStoreVersions/[^ "]*/ageRatingDeclaration|relationships/ageRatingDeclaration'; then
   finding critical "APPLE-ASCAPI-AGERATING-ENDPOINT-REMOVED" "Pipeline calls a removed App Store Connect API age-rating endpoint" "Switch to the current age-rating declaration read and update endpoints (ASC API 4.4 release notes)." src 'appStoreVersions/[^ "]*/ageRatingDeclaration|relationships/ageRatingDeclaration'
 fi
+# Apple HIG, Privacy. a custom pre-alert screen titles its one button Continue or Next, never Allow.
+# A button and a permission request in one Apple source file is evidence, so it is reported as possible.
+PERM_REQ_RE='requestWhenInUseAuthorization|requestAlwaysAuthorization|requestTrackingAuthorization|requestAuthorization[(:]|requestAuthorizationWithOptions|requestAccess[(:]|requestAccessForMediaType|requestRecordPermission|request[(][[:space:]]*PERMISSIONS[.]IOS|requestMultiple[(][[:space:]]*[[]?[[:space:]]*PERMISSIONS[.]IOS|request[A-Za-z]*PermissionsAsync|Permission[.][A-Za-z]+[.]request[(]'
+ALLOW_BTN_RE='(Button[(][[:space:]]*(LocalizedStringKey[(]|String[(]localized:[[:space:]]*|NSLocalizedString[(])?|setTitle[(]|setTitle:[[:space:]]*@|<Button[^>]*title=[{]?)["'"'"'`]Allow([[:space:]][A-Za-z ]{0,30})?["'"'"'`]'
+ANDROID_SRC_RE='(^|/)android/|[.]android[.][A-Za-z]+$|[.](kt|kts|java)$'
+strip_comments() {  # $1 file. Blanks // and /* */ comments outside strings, keeping line numbers
+  local nest=0
+  case "$1" in *.swift) nest=1 ;; esac
+  awk -v nest="$nest" 'BEGIN { inb = 0; ml = 0 }
+  { o = ""; if (q != "`") q = ""; n = length($0); i = 1
+    while (i <= n) {
+      c = substr($0, i, 1); t = substr($0, i, 2)
+      if (ml) { o = o c; if (substr($0, i, 3) == "\"\"\"") { o = o "\"\""; ml = 0; i += 3 } else i++; continue }
+      if (inb) {
+        if (t == "*/") { inb--; i += 2 } else if (nest && t == "/*") { inb++; i += 2 } else i++
+        continue
+      }
+      if (q == "#") { o = o c; if (t == "\"#") { o = o "#"; q = ""; i += 2 } else i++; continue }
+      if (q != "") { o = o c; if (c == "\\") { o = o substr($0, i + 1, 1); i += 2; continue }; if (c == q) q = ""; i++; continue }
+      if (t == "#\"") { o = o t; q = "#"; i += 2; continue }
+      if (substr($0, i, 3) == "\"\"\"") { o = o "\"\"\""; ml = 1; i += 3; continue }
+      if (t == "/*") { inb = 1; i += 2; continue }
+      if (t == "//") break
+      if (c == "\"" || c == "`" || c == "'"'"'") q = c
+      o = o c; i++
+    }
+    print o }' "$1" 2>/dev/null
+}
+pre_prompt_hit() {  # prints path:line of an Allow button in an Apple source file that also requests a permission
+  local f src hit
+  while IFS= read -r f <&4; do
+    src="$(strip_comments "$f")"
+    # grep without -q reads all its input, so a large file never loses the match to SIGPIPE under pipefail.
+    printf '%s\n' "$src" | grep -E -e "$PERM_REQ_RE" >/dev/null || continue
+    hit="$(printf '%s\n' "$src" | grep -En -e "$ALLOW_BTN_RE" | head -1 | cut -d: -f1)"
+    if [ -n "$hit" ]; then printf '%s:%s\n' "$f" "$hit"; return 0; fi
+  done 4< <(grep -E "$SRC_EXT_RE" "$FILELIST" | grep -Ev "$ANDROID_SRC_RE" | tr '\n' '\0' | xargs -0 grep -El -e "$PERM_REQ_RE" 2>/dev/null | tr '\n' '\0' | xargs -0 grep -l -e 'Allow' 2>/dev/null)
+  return 1
+}
+if [ "$IOS_TARGET_ACTIVE" -eq 1 ] && [ -s "$FILELIST" ]; then
+  PRE_PROMPT_HIT="$(pre_prompt_hit)"
+  if [ -n "$PRE_PROMPT_HIT" ]; then
+    PRE_PROMPT_AT="${PRE_PROMPT_HIT#"${DIR%/}"/}"
+    finding medium "APPLE-5.1.1-PRE-PROMPT-ALLOW-BUTTON" "Possible pre-permission screen with a button titled Allow, at $PRE_PROMPT_AT" "If this screen comes before a system permission alert, title its one button Continue or Next and let the alert ask. Add another action only to collect legally required consent (Apple HIG Privacy, Guideline 5.1.1(iv)). A Settings toggle or a plain label is fine."
+  fi
+fi
 # Genuine placeholder CONTENT only. the bare word "placeholder" matches every SwiftUI
 # `placeholder:` parameter and a "TODO"/"FIXME" matches normal dev comments, neither of which is a
 # rejection cause, so match real placeholder markers a reviewer would actually see.
-if grep_has 'lorem ipsum|example\.(com|org)|YOUR_[A-Z_]+_(KEY|HERE)|INSERT_[A-Z_]+_HERE|dummy (text|content|data)|(john|jane)@example|"Acme( Inc| Corp)?"'; then
-  finding high "BOTH-PLACEHOLDER" "Placeholder content (lorem ipsum, example.com, dummy text) found in sources" "Replace placeholder text and assets with real content." src 'lorem ipsum|example\.(com|org)|YOUR_[A-Z_]+_(KEY|HERE)|INSERT_[A-Z_]+_HERE|dummy (text|content|data)|(john|jane)@example|"Acme( Inc| Corp)?"'
+if ship_has 'lorem ipsum|example\.(com|org)|YOUR_[A-Z_]+_(KEY|HERE)|INSERT_[A-Z_]+_HERE|dummy (text|content|data)|(john|jane)@example|"Acme( Inc| Corp)?"'; then
+  finding high "BOTH-PLACEHOLDER" "Placeholder content (lorem ipsum, example.com, dummy text) found in sources" "Replace placeholder text and assets with real content." ship 'lorem ipsum|example\.(com|org)|YOUR_[A-Z_]+_(KEY|HERE)|INSERT_[A-Z_]+_HERE|dummy (text|content|data)|(john|jane)@example|"Acme( Inc| Corp)?"'
 fi
 # ROSCA and CA/NY/MA negative-option laws bind regardless of the vacated federal rule.
 # "call" and "write" match as whole words only, or "renews automatically until cancelled" and
@@ -819,13 +931,13 @@ if [ "$IS_RN" -eq 1 ] && [ "$NEEDS_NATIVE" -eq 1 ]; then
       # Only the permissions array counts. blockedPermissions removes a permission, it never adds one.
       EX_PERMS="$(cat "${EXPO_CFG[@]}" 2>/dev/null | tr -d '\n\r' | grep -oE "(^|[^A-Za-z])[\"']?permissions[\"']?[[:space:]]*:[[:space:]]*\\[[^]]*\\]")"
       # A JS or TS config may quote a key either way, or not at all.
-      if printf '%s' "$EX_PERMS" | grep -q 'ACCESS_BACKGROUND_LOCATION' || ex_cfg "isAndroidBackgroundLocationEnabled[\"']?[[:space:]]*:[[:space:]]*true"; then
+      if printf '%s' "$EX_PERMS" | grep_q 'ACCESS_BACKGROUND_LOCATION' || ex_cfg "isAndroidBackgroundLocationEnabled[\"']?[[:space:]]*:[[:space:]]*true"; then
         finding critical "GOOGLE-PERM-BACKGROUND-LOCATION" "Background location requested in the Expo app config" "Justify with a core feature and prominent disclosure, or use foreground location."
       fi
-      if printf '%s' "$EX_PERMS" | grep -qE 'READ_SMS|SEND_SMS|RECEIVE_SMS|READ_CALL_LOG|WRITE_CALL_LOG'; then
+      if printf '%s' "$EX_PERMS" | grep_q -E 'READ_SMS|SEND_SMS|RECEIVE_SMS|READ_CALL_LOG|WRITE_CALL_LOG'; then
         finding critical "GOOGLE-PERM-SMS-CALLLOG" "SMS or Call Log permission in the Expo app config" "Use the permissions declaration for an approved core use case, or drop it."
       fi
-      if printf '%s' "$EX_PERMS" | grep -q 'MANAGE_EXTERNAL_STORAGE'; then
+      if printf '%s' "$EX_PERMS" | grep_q 'MANAGE_EXTERNAL_STORAGE'; then
         finding critical "GOOGLE-PERM-ALL-FILES" "All files access in the Expo app config" "Use scoped storage. Request all files access only for a qualifying use case."
       fi
     fi
@@ -854,7 +966,7 @@ fi
 # Gated like the framework checks, so an Android-only command never meets an Apple finding.
 if [ "$IOS_TARGET_ACTIVE" -eq 1 ]; then
   if release_string_has 'localhost|127\.0\.0\.1|staging\.[a-z]|ngrok\.io'; then
-    finding critical "APPLE-2.1-STAGING-BACKEND" "A release-build string points at localhost or a staging host" "Point the release build at the live production backend. A localhost/staging URL inside #if DEBUG or a comment is fine. this only flags strings the release build actually compiles." src 'localhost|127\.0\.0\.1|staging\.[a-z]|ngrok\.io'
+    finding critical "APPLE-2.1-STAGING-BACKEND" "A release-build string points at localhost or a staging host" "Point the release build at the live production backend. A localhost/staging URL inside #if DEBUG or a comment is fine. this only flags strings the release build actually compiles." at "$RELEASE_HIT"
   fi
   if grep_has 'signIn|logIn|LoginView|OAuth|FirebaseAuth|createAccount|signUp'; then
     if ! impl_has 'deleteAccount|delete_account|account deletion|deleteUser'; then
@@ -873,8 +985,31 @@ if [ "$IOS_TARGET_ACTIVE" -eq 1 ]; then
   if code_has 'CNContactStore'; then
     config_has 'NSContactsUsageDescription' || finding high "APPLE-5.1.1-MISSING-USAGE-DESCRIPTION" "Contacts used without NSContactsUsageDescription" "Add NSContactsUsageDescription with a specific reason." src 'CNContactStore'
   fi
+js_apple_login_started() {  # 0 if JS or TS code calls signInAsync( or performRequest({... Operation.LOGIN ...})
+    [ -s "$FILELIST" ] || return 1
+    grep -E '[.][cm]?[jt]sx?$' "$FILELIST" | tr '\n' '\0' | xargs -0 python3 -c "$(cat <<'SIWAPY'
+import re
+import sys
+
+TOKEN = re.compile(r'"(?:\\.|[^"\\\n])*"|' + r"'(?:\\.|[^'\\\n])*'|" + r"\x60(?:\\.|[^\x60\\])*\x60|/[*].*?[*]/|//[^\n]*", re.S)
+EXPO = re.compile(r"AppleAuthentication\s*[.]\s*signInAsync\s*[(]")
+INVERTASE = re.compile(r"[.]performRequest\s*[(]\s*[{][^{}]*?requestedOperation\s*:\s*appleAuth\s*[.]\s*Operation\s*[.]\s*LOGIN\b", re.S)
+for path in sys.argv[1:]:
+    try:
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            code = TOKEN.sub(" ", fh.read())
+    except OSError:
+        continue
+    if EXPO.search(code) or INVERTASE.search(code):
+        sys.exit(0)
+sys.exit(1)
+SIWAPY
+  )" 2>/dev/null
+  }
   if grep_has 'FacebookLogin|GoogleSignIn|GIDSignIn|LoginWithFacebook'; then
-    grep_has 'SignInWithApple|ASAuthorizationAppleIDProvider' || finding high "APPLE-4.8-SOCIAL-LOGIN-ONLY" "Third party social login without Sign in with Apple" "Add Sign in with Apple or an equal privacy preserving login (Apple 4.8)." src 'FacebookLogin|GoogleSignIn|GIDSignIn|LoginWithFacebook'
+    # React Native and Expo sign in with Apple through a JS library. Only a started login counts, read
+    # with comments and strings removed. Buttons, enums, options objects and logout do not.
+    grep_has 'SignInWithApple|ASAuthorizationAppleIDProvider' || js_apple_login_started || finding high "APPLE-4.8-SOCIAL-LOGIN-ONLY" "Third party social login without Sign in with Apple" "Add Sign in with Apple or an equal privacy preserving login (Apple 4.8)." src 'FacebookLogin|GoogleSignIn|GIDSignIn|LoginWithFacebook'
   fi
   # Hide My Email relay addresses now also come from private.icloud.com (Apple news 1ptvdtcm, corrected 24 Aug 2026).
   if grep_has 'privaterelay\.appleid\.com' && ! grep_has 'private\.icloud\.com'; then
@@ -895,7 +1030,7 @@ if [ "$IOS_TARGET_ACTIVE" -eq 1 ]; then
   # A Podfile has no extension, so it is outside the source list. Read it directly.
   podfile_below_ios13() {
     find "$DIR" -maxdepth 4 \( -type d \( -name Pods -o -name node_modules \) -prune \) -o -name Podfile -type f -print 2>/dev/null \
-      | head -5 | while IFS= read -r pf; do grep -Eq "^[[:space:]]*platform[[:space:]]+:ios,[[:space:]]*.(8|9|10|11|12)([.][0-9]+)*." "$pf" && echo hit; done | grep -q hit
+      | awk 'NR <= 5' | while IFS= read -r pf; do if grep -Eq "^[[:space:]]*platform[[:space:]]+:ios,[[:space:]]*.(8|9|10|11|12)([.][0-9]+)*." "$pf"; then echo hit; fi; done | grep_q hit
   }
   # App Store Connect refuses uploads that target below iOS 13 (Upcoming Requirements page).
   pbx_below_ios13() {  # reads the app target's build settings, never a framework's or a test bundle's
@@ -914,6 +1049,17 @@ BLOCK_RE = re.compile(
 DT_RE = re.compile(
     r"IPHONEOS_DEPLOYMENT_TARGET(?:\[[^\]]*\])?\s*=\s*\"?([0-9]+)(?:\.[0-9]+)*\"?\s*;"
 )
+# Xcode writes an SDK-conditional key in quotes. Only the device SDK ships, and only a value
+# below the minimum is read from it, so a quoted key can add a finding but never hide one.
+QDT_RE = re.compile(r'"IPHONEOS_DEPLOYMENT_TARGET\[sdk=iphoneos[*]\]"\s*=\s*"?([0-9]+)')
+CONDITIONAL_RE = re.compile(r'IPHONEOS_DEPLOYMENT_TARGET\[')
+COMMENT_RE = re.compile(r"//[^\n]*|/[*].*?[*]/", re.S)
+PROJECT_RE = re.compile(r"isa = PBXProject;.*?buildConfigurationList = (\w+)", re.S)
+TARGET_RE = re.compile(r"isa = PBXNativeTarget;((?:(?!isa = ).)*?)productType = " + chr(34) + "?([^" + chr(34) + ";]+)", re.S)
+LIST_REF_RE = re.compile(r"buildConfigurationList = (\w+)")
+ID_RE = re.compile(r"\w+")
+OWNER_RE = re.compile(r"(\w+)(?:\s*/[*][^*]*[*]/)?\s*=\s*" + re.escape(chr(123)) + r"\s*$")
+NAME_RE = re.compile(r"\s*name = ([^;]+);")
 DEPENDENCY_MARKERS = (
     "SKIP_INSTALL = YES",
     "DYLIB_INSTALL_NAME_BASE",
@@ -935,8 +1081,38 @@ for path in sys.argv[1:]:
     except OSError:
         continue
     app, project = [], []
-    for settings in BLOCK_RE.findall(text):
+    # The PBXProject configurations are project defaults, never the settings of a target.
+    project_ids = set()
+    pbx = PROJECT_RE.search(text)
+    if pbx:
+        lst = re.search(re.escape(pbx.group(1)) + r"\b[^=]*=\s*" + re.escape(chr(123)) + r"\s*isa = XCConfigurationList;\s*buildConfigurations = \((.*?)\);", text, re.S)
+        if lst:
+            project_ids = set(ID_RE.findall(COMMENT_RE.sub(" ", lst.group(1))))
+    # When the file names its targets, only an application target configuration is read.
+    app_ids, has_targets = set(), False
+    for target in TARGET_RE.finditer(text):
+        has_targets = True
+        ref = LIST_REF_RE.search(target.group(1))
+        if ref and target.group(2) == "com.apple.product-type.application":
+            lst = re.search(re.escape(ref.group(1)) + r"\b[^=]*=\s*" + re.escape(chr(123)) + r"\s*isa = XCConfigurationList;\s*buildConfigurations = \((.*?)\);", text, re.S)
+            if lst:
+                app_ids |= set(ID_RE.findall(COMMENT_RE.sub(" ", lst.group(1))))
+    for block in BLOCK_RE.finditer(text):
+        owner = OWNER_RE.search(text[max(0, block.start() - 300):block.start()])
+        settings = block.group(1)
         flags = below(settings)
+        name = NAME_RE.match(text, block.end())
+        live = COMMENT_RE.sub(" ", settings)
+        # Only the Release configuration of an app with its own bundle id, and only when no
+        # other conditional deployment key could override the quoted one.
+        certain = ("PRODUCT_BUNDLE_IDENTIFIER" in live
+                   and not any(marker in live for marker in DEPENDENCY_MARKERS)
+                   and len(CONDITIONAL_RE.findall(live)) == len(QDT_RE.findall(live)))
+        certain = certain and not (owner and owner.group(1) in project_ids)
+        if has_targets:
+            certain = certain and bool(owner) and owner.group(1) in app_ids
+        if certain and name and name.group(1).strip().strip('"').lower() == "release":
+            flags += [True for value in QDT_RE.findall(live) if int(value) < 13]
         if not flags:
             continue
         if "PRODUCT_BUNDLE_IDENTIFIER" in settings or "PRODUCT_NAME" in settings:
@@ -953,17 +1129,17 @@ PBXPY
   }
   xcconfig_below_ios13() {
     [ -s "$FILELIST" ] || return 1
-    grep '[.]xcconfig$' "$FILELIST" | grep -viE '(test|framework|pods)' | tr '\n' '\0' | xargs -0 grep -EIls -e 'IPHONEOS_DEPLOYMENT_TARGET(\[[^]]*\])?[[:space:]]*=[[:space:]]*"?(8|9|10|11|12)(\.[0-9]+)*"?[[:space:]]*(;|//|$)|platform[[:space:]]+:ios,[[:space:]]*.(8|9|10|11|12)(\.[0-9]+)*.' 2>/dev/null | grep -q .
+    grep '[.]xcconfig$' "$FILELIST" | grep -viE '(test|framework|pods)' | tr '\n' '\0' | xargs -0 grep -EIls -e 'IPHONEOS_DEPLOYMENT_TARGET(\[[^]]*\])?[[:space:]]*=[[:space:]]*"?(8|9|10|11|12)(\.[0-9]+)*"?[[:space:]]*(;|//|$)|platform[[:space:]]+:ios,[[:space:]]*.(8|9|10|11|12)(\.[0-9]+)*.' 2>/dev/null | grep . >/dev/null
   }
   if podfile_below_ios13 || pbx_below_ios13 || xcconfig_below_ios13; then
-    finding high "APPLE-MIN-DEPLOYMENT-TARGET-IOS13" "iOS deployment target below iOS 13" "Raise the app target IPHONEOS_DEPLOYMENT_TARGET and the Podfile platform to 13.0 or later. A lower target on a dependency or test target alone is fine. App Store Connect refuses uploads that target an earlier iOS." src 'IPHONEOS_DEPLOYMENT_TARGET(\[[^]]*\])?[[:space:]]*=[[:space:]]*"?(8|9|10|11|12)(\.[0-9]+)*"?[[:space:]]*(;|//|$)|platform[[:space:]]+:ios,[[:space:]]*.(8|9|10|11|12)(\.[0-9]+)*.'
+    finding high "APPLE-MIN-DEPLOYMENT-TARGET-IOS13" "iOS deployment target below iOS 13" "Raise the app target IPHONEOS_DEPLOYMENT_TARGET and the Podfile platform to 13.0 or later. A lower target on a dependency or test target alone is fine. App Store Connect refuses uploads that target an earlier iOS." src 'IPHONEOS_DEPLOYMENT_TARGET(\[[^]]*\])?[[:space:]]*=[[:space:]]*"?(8|9|10|11|12)(\.[0-9]+)*"?[[:space:]]*(;|//|$)|platform[[:space:]]+:ios,[[:space:]]*.(8|9|10|11|12)(\.[0-9]+)*.|"IPHONEOS_DEPLOYMENT_TARGET\[sdk=iphoneos[*]\]"[[:space:]]*=[[:space:]]*"?(8|9|10|11|12)(\.[0-9]+)*'
   fi
   # App Review runs on an IPv6-only NAT64 network (2.5.5). IPv4-only socket calls fail there.
   # C, C++ and Objective-C++ sit outside the shared source list, so read the app's own ones here.
   native_ipv4_only() {
     find "$DIR" -maxdepth 8 \( -type d \( -name Pods -o -name node_modules -o -name vendor -o -name Vendor -o -name ThirdParty -o -name third_party -o -name external -o -name External -o -name Carthage -o -name build -o -name .git \) -prune \) \
-      -o -type f \( -name '*.c' -o -name '*.cpp' -o -name '*.cc' -o -name '*.mm' \) -print 2>/dev/null | head -2000 \
-      | tr '\n' '\0' | xargs -0 grep -EIls -e '(^|[^A-Za-z0-9_])(inet_addr|inet_aton|gethostbyname)[[:space:]]*\(' 2>/dev/null | grep -q .
+      -o -type f \( -name '*.c' -o -name '*.cpp' -o -name '*.cc' -o -name '*.mm' \) -print 2>/dev/null | awk 'NR <= 2000' \
+      | tr '\n' '\0' | xargs -0 grep -EIls -e '(^|[^A-Za-z0-9_])(inet_addr|inet_aton|gethostbyname)[[:space:]]*\(' 2>/dev/null | grep . >/dev/null
   }
   if native_ipv4_only || grep_has '(^|[^A-Za-z0-9_])(inet_addr|inet_aton|gethostbyname)[[:space:]]*\('; then
     finding medium "APPLE-2.5.5-IPV4-ONLY-NETWORKING" "IPv4-only socket API in use" "Replace inet_addr, inet_aton and gethostbyname with getaddrinfo or Network.framework, and test on an IPv6-only NAT64 network (Mac Internet Sharing, Create NAT64 Network)." src '(^|[^A-Za-z0-9_])(inet_addr|inet_aton|gethostbyname)[[:space:]]*\('
@@ -1058,9 +1234,9 @@ PBXPY
   if grep_has 'fixed-odds|betting'; then
     finding critical "APPLE-GAMBLING-BRAZIL-LICENSE" "Fixed-odds or betting keyword detected in sources" "Provide a valid fixed-odds betting license from the Secretariat of Prizes and Bets (SPA) in App Review Info, set age rating to A18, and submit a new version to trigger verification (Apple policy May 8, 2026)." src 'fixed-odds|betting'
   fi
-  if grep_has 'Image\('; then
+  if apple_has 'Image\('; then
     if ! grep_has 'accessibilityLabel|accessibilityIdentifier|accessibilityHidden|accessibilityElement'; then
-      finding medium "APPLE-ACCESSIBILITY-VOICEOVER" "SwiftUI Image or UIKit component without VoiceOver accessibility attribute" "Provide an accessibilityLabel or use decorative initializers (Apple Design - Accessibility)." src 'Image\('
+      finding medium "APPLE-ACCESSIBILITY-VOICEOVER" "SwiftUI Image or UIKit component without VoiceOver accessibility attribute" "Provide an accessibilityLabel or use decorative initializers (Apple Design - Accessibility)." apple 'Image\('
     fi
   fi
   if grep_has '\.system\(size:'; then
@@ -1076,9 +1252,9 @@ PBXPY
       finding medium "APPLE-ACCESSIBILITY-COLORCONTRAST" "Raw RGB UIColor without system dynamic color or high contrast checks" "Utilize dynamic named asset colors or check isDarkerSystemColorsEnabled (Apple Design - Accessibility)." src 'UIColor\(\s*red:'
     fi
   fi
-  if grep_has 'onTapGesture|Button'; then
+  if apple_has 'onTapGesture|Button'; then
     if ! grep_has 'FeedbackGenerator|CoreHaptics'; then
-      finding medium "APPLE-ACCESSIBILITY-HAPTICS" "Taps or button interactions without tactile feedback" "Integrate haptic feedback generators to improve interaction accessibility (Apple Design - Accessibility)." src 'onTapGesture|Button'
+      finding medium "APPLE-ACCESSIBILITY-HAPTICS" "Taps or button interactions without tactile feedback" "Integrate haptic feedback generators to improve interaction accessibility (Apple Design - Accessibility)." apple 'onTapGesture|Button'
     fi
   fi
   if grep_has 'focusable'; then
@@ -1191,16 +1367,27 @@ if [ "$IS_AND" -eq 1 ]; then
       finding high "ANDROID-INSECURE-BACKUP" "Android allowBackup is enabled without strict filters" "Disable backups using android:allowBackup=\"false\", or restrict backup folders using dataExtractionRules." src 'allowBackup="true"'
     fi
   fi
-  if grep_has 'android:scheme'; then
+  # A scheme inside <queries> names apps this app wants to see (package visibility), not a link it handles.
+  # Each manifest is read element by element, so the first android:scheme outside <queries> and comments is named.
+  DL_AT="$(tr '\n' '\0' < "$FILELIST" | xargs -0 grep -l 'android:scheme' 2>/dev/null | tr '\n' '\0' | xargs -0 awk 'BEGIN { RS = "<" } FNR == 1 { q = 0; c = 0; ln = 1 }
+    { s = $0
+      if (c) { if (s ~ /-->/) c = 0 }
+      else if (s ~ /^!--/) { if (s !~ /-->/) c = 1 }
+      else if (s ~ /^queries[^>]*\/>/) { }
+      else if (s ~ /^queries[ \t\r\n>]/) q = 1
+      else if (s ~ /^\/queries[ \t\r\n>]/) q = 0
+      else if (!q && s !~ /^!--/ && (p = index(s, "android:scheme")) > 0) { pre = substr(s, 1, p); print FILENAME ":" ln + gsub(/\n/, "", pre); exit }
+      ln += gsub(/\n/, "", s) }' 2>/dev/null | head -1)"
+  if [ -n "$DL_AT" ]; then
     if ! grep_has 'assetlinks.json'; then
-      finding high "BOTH-UNSAFE-DEEPLINK" "Custom URL deep link schemes declared without App Links configuration" "Configure App Links (Android) using assetlinks.json verification to prevent URL hijacking." src 'android:scheme'
+      finding high "BOTH-UNSAFE-DEEPLINK" "Custom URL deep link schemes declared without App Links configuration" "Configure App Links (Android) using assetlinks.json verification to prevent URL hijacking." at "${DL_AT#"${DIR%/}"/}"
     fi
   fi
   # Play Console refuses a debuggable APK or app bundle.
   release_manifest_debuggable() {
     [ -s "$FILELIST" ] || return 1
     grep '/AndroidManifest[.]xml$' "$FILELIST" | grep -vE '/src/(debug|androidTest|test)[^/]*/' | tr '\n' '\0' \
-      | xargs -0 grep -EIls -e "android:debuggable[[:space:]]*=[[:space:]]*[\"']true[\"']" 2>/dev/null | grep -q .
+      | xargs -0 grep -EIls -e "android:debuggable[[:space:]]*=[[:space:]]*[\"']true[\"']" 2>/dev/null | grep . >/dev/null
   }
   if release_manifest_debuggable; then
     finding critical "ANDROID-DEBUGGABLE-RELEASE" "android:debuggable is true in the manifest" "Remove android:debuggable from the manifest and let the build type set it. Play Console rejects a debuggable APK or app bundle." manifest 'android:debuggable'
@@ -1391,9 +1578,28 @@ ABIPY
       finding critical "ANDROID-USER-DATA-DISCLOSURE" "Missing prominent disclosure for sensitive user data" "Provide a prominent in-app disclosure before collecting sensitive personal data, and obtain explicit user consent." manifest 'android\.permission\.(READ_CONTACTS|WRITE_CONTACTS|READ_SMS|SEND_SMS|RECEIVE_SMS|READ_CALL_LOG|WRITE_CALL_LOG|GET_ACCOUNTS|MANAGE_EXTERNAL_STORAGE)'
     fi
   fi
-  if grep_has 'com\.google\.android\.gms\.permission\.AD_ID|AD_ID|getAdvertisingIdInfo'; then
+  # Prints the first file:line that uses the advertising ID, or nothing. A <uses-permission> with tools:node="remove"
+  # strips the AD_ID permission that an SDK such as firebase-analytics merges in, so the merged manifest declares none.
+  # AD_ID after a letter or digit is the end of a longer word (THREAD_ID, UPLOAD_ID, PAYLOAD_ID) and does not count.
+  advertising_id_at() {
+    local re='com\.google\.android\.gms\.permission\.AD_ID|(^|[^A-Za-z0-9])AD_ID|getAdvertisingIdInfo' hits f n
+    grep_has "$re" || return 0
+    hits="$(tr '\n' '\0' < "$FILELIST" | xargs -0 grep -EIls -e "$re" 2>/dev/null)"
+    while IFS= read -r f; do
+      [ -n "$f" ] || continue
+      case "$f" in */AndroidManifest.xml)  # one element per line, so a tools:node on the next line is read
+        # A removal scoped with tools:selector strips one library only, so the others still merge it in.
+        [ -n "$(tr '\n\r\t' '   ' < "$f" | tr '<' '\n' | grep -E -e "$re" | grep -Ev "tools:node[[:space:]]*=[[:space:]]*[\"']remove[\"']" ; tr '\n\r\t' '   ' < "$f" | tr '<' '\n' | grep -E -e "$re" | grep -E 'tools:selector')" ] || continue ;;
+      esac
+      n="$(grep -En -m1 -e "$re" "$f" 2>/dev/null | cut -d: -f1)"
+      printf '%s%s' "${f#"${DIR%/}"/}" "${n:+:$n}"
+      return 0
+    done <<< "$hits"
+  }
+  ADID_AT="$(advertising_id_at)"
+  if [ -n "$ADID_AT" ]; then
     if ! grep_has 'opt-out|reset AD_ID|advertisingIdConsent|delete AD_ID'; then
-      finding high "ANDROID-ADVERTISING-ID" "Google Play Advertising ID usage without disclosure or opt-out" "Declare the AD_ID permission in AndroidManifest.xml and handle user opt-out or deletion requests in full compliance with Google Play policy." src 'com\.google\.android\.gms\.permission\.AD_ID|AD_ID|getAdvertisingIdInfo'
+      finding high "ANDROID-ADVERTISING-ID" "Google Play Advertising ID usage without disclosure or opt-out" "Declare the AD_ID permission in AndroidManifest.xml and handle user opt-out or deletion requests in full compliance with Google Play policy." at "$ADID_AT"
     fi
   fi
   if grep_has 'requestPermissions|checkSelfPermission|shouldShowRequestPermissionRationale'; then
@@ -1510,7 +1716,7 @@ bare_native_apart() {  # $1 candidate dir below $DIR
   local rel="${1#"${DIR%/}"/}" f
   case "$rel" in ios|ios/*|android|android/*) return 1 ;; esac
   # A folder named exactly demo, example, sample, or playground (or plural) holds a repo demo, so it stays in the root scan.
-  printf '%s' "$rel" | tr '[:upper:]' '[:lower:]' | tr '/' '\n' | grep -qxE 'demos?|examples?|samples?|playgrounds?' && return 1
+  printf '%s' "$rel" | tr '[:upper:]' '[:lower:]' | tr '/' '\n' | grep -xE 'demos?|examples?|samples?|playgrounds?' >/dev/null && return 1
   find "$1" -maxdepth 4 \( -type d \( -name Pods -o -name node_modules -o -name build \) -prune \) \
     -o \( -name 'Info.plist' -o -name 'AndroidManifest.xml' \) -print 2>/dev/null | grep . >/dev/null || return 1
   # Only a shippable app splits off. a library module or a local native module stays with the app that uses it.
@@ -1608,6 +1814,301 @@ if [ -n "$STDIN_JSON" ]; then
   if [ -z "$REPORT" ] && [ "$IS_CURSOR" -eq 1 ]; then exec 3>&1; exec 1>&2; CURSOR_FD=1; fi
 fi
 
+# A stale checklist gives false confidence. Every report names its rule pack version and the newest
+# verified_on date, and warns when that is older than APP_STORE_GUARD_STALE_DAYS (default 60).
+rule_pack_line() {
+  local hd root="" c ver="unknown" dates="" newest="" oldest="" total=0 old=0 cutoff age="" then_s now_s stale="${APP_STORE_GUARD_STALE_DAYS:-60}"
+  case "$stale" in ''|*[!0-9]*) stale=60 ;; esac
+  hd="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  for c in "$hd/../.." "$hd/../skills/app-store-compliance" "${HOME:-}/.agents/skills/app-store-compliance"; do
+    if [ -f "$c/data/regulatory-deadlines.json" ]; then root="$(cd "$c" && pwd)"; break; fi
+  done
+  if [ -z "$root" ]; then
+    echo "Rule pack. unknown. The guard runs without its data folder, so its rule dates cannot be shown. Reinstall with scripts/install.sh."
+    return 0
+  fi
+  [ -f "$root/VERSION" ] && ver="$(tr -d '[:space:]' < "$root/VERSION")"
+  dates="$(grep -oE '"verified_on":[[:space:]]*"[0-9]{4}-[0-9]{2}-[0-9]{2}"' "$root/data/regulatory-deadlines.json" 2>/dev/null | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' | sort)"
+  if [ -n "$dates" ]; then
+    newest="$(printf '%s\n' "$dates" | tail -1)"; oldest="$(printf '%s\n' "$dates" | head -1)"
+    total="$(printf '%s\n' "$dates" | wc -l | tr -d ' ')"
+    now_s="$(date +%s 2>/dev/null)"
+    then_s="$(date -j -f '%Y-%m-%d %H:%M:%S' "$newest 00:00:00" +%s 2>/dev/null || date -d "$newest 00:00:00" +%s 2>/dev/null)"
+    cutoff="$(date -v-"${stale}"d +%Y-%m-%d 2>/dev/null || date -d "-$stale days" +%Y-%m-%d 2>/dev/null)"
+    case "$now_s" in ''|*[!0-9]*) now_s="" ;; esac
+    case "$then_s" in ''|*[!0-9]*) then_s="" ;; esac
+    case "$cutoff" in [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]) ;; *) cutoff="" ;; esac
+    if [ -n "$now_s" ] && [ -n "$then_s" ] && [ -n "$cutoff" ] && [ "$now_s" -ge "$then_s" ]; then
+      age=$(( (now_s - then_s) / 86400 ))
+      old="$(printf '%s\n' "$dates" | awk -v c="$cutoff" '$0 < c' | wc -l | tr -d ' ')"
+    fi
+  fi
+  if [ -n "$newest" ]; then
+    echo "Rule pack. v$ver. Its $total dated sources were verified between $oldest and $newest${age:+ (newest $age days ago)}. The checks run against this dated snapshot, not the live guideline pages."
+  else
+    echo "Rule pack. v$ver, sources last verified unknown. The checks run against this dated snapshot, not the live guideline pages."
+  fi
+  if [ -n "$age" ] && [ "$age" -le "$stale" ] && [ "${old:-0}" -gt 0 ]; then
+    echo "Rule pack. $old of $total dated sources were last verified more than $stale days ago, so their rules may have changed since. Each one carries its date as verified_on in data/regulatory-deadlines.json."
+  fi
+  if [ -z "$age" ]; then
+    echo "Rule pack freshness not checked. The verified date could not be read or compared, so treat these rules as possibly stale."
+  elif [ "$age" -gt "$stale" ]; then
+    echo "Rule pack STALE. Older than $stale days, so a rule Apple or Google changed since then is not checked. Update with git -C \"$root\" pull, or reinstall."
+  fi
+}
+
+# What a code scan cannot prove, recorded per app in .app-review-readiness.json (else the workspace's).
+# A recorded fail blocks. "enforce": true or APP_STORE_GUARD_REQUIRE_READINESS=1 makes an open check block too.
+readiness_check() {  # $1 app root, $2 workspace root
+  local app="${1%/}" ws="${2%/}" d f="" from="" label req="${APP_STORE_GUARD_REQUIRE_READINESS:-0}" out rc sev id title fix
+  label="${app#"$ws"/}"; [ "$app" = "$ws" ] && label="this project"
+  d="$app"
+  while :; do
+    if [ -e "$d/.app-review-readiness.json" ] || [ -L "$d/.app-review-readiness.json" ]; then f="$d/.app-review-readiness.json"; break; fi
+    case "$d/" in "$ws"/*) ;; *) break ;; esac
+    { [ "$d" = "$ws" ] || [ "$d" = "/" ] || [ -z "$d" ]; } && break
+    d="$(dirname "$d")"
+  done
+  [ -z "$f" ] && { [ -e "$ws/.app-review-readiness.json" ] || [ -L "$ws/.app-review-readiness.json" ]; } && f="$ws/.app-review-readiness.json"
+  if [ -n "$f" ] && [ "$f" != "$app/.app-review-readiness.json" ]; then
+    from=", from ${f#"$ws"/}"; [ "$f" = "$ws/.app-review-readiness.json" ] && from=", from the workspace file"
+  fi
+  echo ""
+  if [ -z "$f" ]; then
+    echo "Manual checks for $label. Not attested. The scan proves code, config and manifests only. It cannot prove a working demo account, a live backend, review notes, screenshots of this build, account deletion on a real device, privacy labels that match runtime, or an in-app purchase the reviewer can reach. Copy templates/app-review-readiness.json to the app folder and record each one."
+    [ "$req" = "1" ] && finding critical "MANUAL-READINESS-MISSING" "No .app-review-readiness.json for $label, and readiness is required" "Copy templates/app-review-readiness.json to the app folder, test each item on the release build, and record pass, fail, or n/a with a reason."
+    flush_findings; return 0
+  fi
+  if [ ! -f "$f" ] || [ ! -r "$f" ]; then
+    finding critical "MANUAL-READINESS-UNREADABLE" ".app-review-readiness.json for $label${from} exists but is not a readable file, so a fail inside it cannot be seen" "Replace it with a regular file shaped like templates/app-review-readiness.json, or remove it."
+    flush_findings; return 0
+  fi
+  if ! tool_ok python3 -c pass; then
+    finding critical "MANUAL-READINESS-UNREAD" ".app-review-readiness.json exists for $label, but python3 is not available to read it" "Install python3, then run the guard again."
+    flush_findings; return 0
+  fi
+  out="$(python3 - "$f" "$req" "$from" <<'PYR'
+import datetime, json, os, re, signal, stat, sys, threading
+
+CHECKS = [
+    ("demo_account", True, "A reviewer can sign in with the demo account in the review notes", "Create a demo account that works against production, put it in App Review Information, and sign in with it on the release build (Apple 2.1, Google Play app access)."),
+    ("live_backend", True, "The backend the reviewer reaches is live and holds test data", "Point the release build at production, load the data a reviewer needs, and keep it up for the whole review (Apple 2.1)."),
+    ("review_notes", True, "Review notes say where every feature is and how to reach it", "Write the tap path to each feature, the IAP, and anything behind login or region in App Review Information (Apple 2.1, 2.3.1)."),
+    ("screenshots_match_build", True, "Screenshots show this build, in use, for each device family you support", "Capture screenshots from the release build with the app in use, and upload the required sizes for each device family you support, iPad included if the app runs there. App Store Connect scales the smaller sizes, so check those layouts on a device (Apple 2.3.3, 2.3.14)."),
+    ("account_deletion_device_test", True, "Account deletion works end to end on a real device", "Delete an account on a real device. After the completion time you tell users, check that the account and its sessions are gone, that its data is deleted except what you disclose keeping (Apple allows records the law requires, Google Play also allows security, fraud-prevention, and regulatory records), and that signing in again does not bring the old account back (Apple 5.1.1(v), Google Play account deletion)."),
+    ("privacy_labels_match_runtime", False, "Privacy labels and Data Safety match what the build and its SDKs collect", "Compare App Privacy answers and the Data Safety form with traffic from the release build, SDKs included (Apple 5.1.2, Google Play User Data). Every app has this check, so n/a is not accepted."),
+    ("iap_reachable_by_reviewer", True, "A reviewer can find and complete every in-app purchase", "Make every product reachable in the review build, submit the IAPs with the version, and name where they are in the review notes (Apple 2.1(b), 3.1.1)."),
+]
+
+
+class Dup(list):
+    pass
+
+
+def keep_dups(pairs):
+    out = {}
+    for key, value in pairs:
+        if key in out:
+            prev = out[key]
+            if isinstance(prev, Dup):
+                prev.append(value)
+            else:
+                out[key] = Dup([prev, value])
+        else:
+            out[key] = value
+    return out
+
+
+def flat(value):
+    if isinstance(value, Dup):
+        for item in value:
+            yield from flat(item)
+    else:
+        yield value
+
+
+def merge_checks(value):
+    """Every checks object is read, and every value kept, so a fail is never lost."""
+    parts = list(flat(value))
+    good = [p for p in parts if isinstance(p, dict)]
+    merged = {}
+    for part in good:
+        for key, item in part.items():
+            merged.setdefault(key, []).extend(flat(item))
+    checks = {k: (Dup(v) if len(v) > 1 else v[0]) for k, v in merged.items()} if good else None
+    return checks, len(good) < len(parts)
+
+
+def clean(value, limit=300):
+    text = str(value).encode("ascii", "replace").decode("ascii")
+    return "".join(c if c.isprintable() and c not in "\t" else " " for c in text)[:limit]
+
+
+def emit(*fields):
+    sys.stdout.write("\t".join(clean(f) for f in fields) + "\n")
+
+
+READ_LIMIT = 8 * 1024 * 1024
+READ_DEADLINE = 10
+
+
+class Late(Exception):
+    pass
+
+
+def late(signum, frame):
+    raise Late()
+
+
+FINISH = threading.Lock()
+WATCHDOGS = []
+
+
+def give_up():
+    # Without SIGALRM a blocked read cannot be interrupted. Whichever side takes FINISH first owns END.
+    if not FINISH.acquire(False):
+        return
+    try:
+        emit("critical", "MANUAL-READINESS-UNREADABLE", ".app-review-readiness.json could not be read within %d seconds, so a fail inside it cannot be seen" % READ_DEADLINE, "Move it to a local disk as a regular file shaped like templates/app-review-readiness.json.")
+        sys.stdout.write("END\n")
+        sys.stdout.flush()
+    finally:
+        os._exit(0)
+
+
+def run():
+    path, required, src = sys.argv[1], sys.argv[2] == "1", sys.argv[3]
+    raw = b""
+    # A stalled read or a FIFO where O_NONBLOCK is missing must end in a finding, never a hang.
+    if hasattr(signal, "SIGALRM"):
+        signal.signal(signal.SIGALRM, late)
+        signal.alarm(READ_DEADLINE)
+    else:
+        watchdog = threading.Timer(READ_DEADLINE, give_up)
+        watchdog.daemon = True
+        WATCHDOGS.append(watchdog)
+        watchdog.start()
+    try:
+        # Non-blocking open and fstat on the same descriptor, so a file swapped for a FIFO cannot hang the read.
+        fd = os.open(path, os.O_RDONLY | getattr(os, "O_NONBLOCK", 0))
+        try:
+            if not stat.S_ISREG(os.fstat(fd).st_mode):
+                emit("critical", "MANUAL-READINESS-UNREADABLE", ".app-review-readiness.json is not a regular file, so a fail inside it cannot be seen", "Replace it with a regular file shaped like templates/app-review-readiness.json, or remove it.")
+                return
+            fh = os.fdopen(fd, "rb")
+            fd = -1
+            with fh:
+                raw = fh.read(READ_LIMIT + 1)
+            if len(raw) > READ_LIMIT:
+                emit("critical", "MANUAL-READINESS-UNREADABLE", ".app-review-readiness.json is larger than 8 MiB, so it was not read and a fail inside it cannot be seen", "Keep it to the shape of templates/app-review-readiness.json, which is under 1 KB.")
+                return
+        finally:
+            if fd >= 0:
+                os.close(fd)
+        data = json.loads(raw, object_pairs_hook=keep_dups)
+    except Late:
+        emit("critical", "MANUAL-READINESS-UNREADABLE", ".app-review-readiness.json could not be read within %d seconds, so a fail inside it cannot be seen" % READ_DEADLINE, "Move it to a local disk as a regular file shaped like templates/app-review-readiness.json.")
+        return
+    except (OSError, ValueError, RecursionError):
+        data = None
+    dups = isinstance(data, dict) and any(isinstance(v, Dup) for v in data.values())
+    if isinstance(data, dict):
+        if isinstance(data.get("checks"), Dup):
+            data["checks"], bad_part = merge_checks(data["checks"])
+            if bad_part and data["checks"] is not None:
+                emit("critical", "MANUAL-READINESS-UNREADABLE", ".app-review-readiness.json repeats checks and one of them is not an object, so a fail inside it cannot be ruled out", "Keep one checks object, as in templates/app-review-readiness.json.")
+        strict = required or (data.get("enforce") is True if not isinstance(data.get("enforce"), Dup) else any(v is True for v in data["enforce"]))
+    else:
+        # Only an unparsed file falls back to the raw text, to stay on the safe side.
+        strict = required or (data is None and re.search(rb'"enforce"\s*:\s*true', raw) is not None)
+    if not isinstance(data, dict) or not isinstance(data.get("checks"), dict):
+        emit("critical", "MANUAL-READINESS-UNREADABLE", ".app-review-readiness.json is not valid JSON with a checks object, so a fail inside it cannot be seen", "Fix the file using templates/app-review-readiness.json as the shape. Until then no manual check counts as done.")
+        return
+    checks = data["checks"]
+    notes = data.get("notes")
+    if notes is None:
+        notes = {}
+    elif not isinstance(notes, dict):
+        emit("high", "MANUAL-READINESS-NOTES-INVALID", "notes in .app-review-readiness.json is not an object, so no n/a reason counts", "Make notes an object keyed by check name, as in templates/app-review-readiness.json.")
+        notes = {}
+    passed, still_open = 0, []
+    for key, na_ok, title, fix in CHECKS:
+        tag = "MANUAL-" + key.upper().replace("_", "-")
+        value = checks.get(key, "missing")
+        if isinstance(value, Dup):
+            dups = True
+        values = list(flat(value))
+        if any(not isinstance(v, str) for v in values):
+            emit("critical", tag + "-INVALID", "%s, recorded as something other than text, so a fail inside it cannot be ruled out" % title, "Write pass, fail, n/a, or todo as plain text, as in templates/app-review-readiness.json.")
+            still_open.append(key)
+            continue
+        seen = {v.strip().lower() for v in values}
+        value = "fail" if "fail" in seen else (seen.pop() if len(seen) == 1 else "conflicting")
+        reason = notes.get(key)
+        has_reason = isinstance(reason, str) and reason.strip() != ""
+        if value == "pass" or (value in ("n/a", "na") and na_ok and has_reason):
+            passed += 1
+            continue
+        if value == "fail":
+            emit("critical", tag + "-FAILED", title + ", recorded as failed", fix)
+            continue
+        if value in ("n/a", "na"):
+            value = "n/a not accepted" if not na_ok else "n/a with no reason in notes"
+        still_open.append(key)
+        if strict:
+            emit("critical", tag + "-UNVERIFIED", "%s, not verified (%s)" % (title, value), fix)
+    if dups:
+        emit("high", "MANUAL-READINESS-DUPLICATE-KEY", ".app-review-readiness.json repeats a key, so the guard kept every value and a recorded fail still counts", "Keep each key once, as in templates/app-review-readiness.json.")
+    when = data.get("checked_on")
+    when = when if isinstance(when, str) else None
+    try:
+        age = (datetime.date.today() - datetime.date.fromisoformat(str(when))).days
+    except (TypeError, ValueError):
+        age = None
+    build = data.get("build")
+    build = build if isinstance(build, str) and build.strip() else "an unnamed build"
+    emit("info", "Manual checks. %d of %d attested for %s%s%s.%s" % (
+        passed, len(CHECKS), build, (", checked %s" % when) if age is not None else ", no valid checked_on date", src,
+        (" Still open. " + ", ".join(still_open) + ".") if still_open else ""))
+    if age is None:
+        emit("high", "MANUAL-READINESS-STALE", ".app-review-readiness.json has no valid checked_on date", "Re-run the manual checks on the build you are submitting and set checked_on to that day, as YYYY-MM-DD.")
+    elif age < 0:
+        emit("high", "MANUAL-READINESS-STALE", ".app-review-readiness.json has a checked_on date in the future", "Set checked_on to the day the manual checks were actually run.")
+    elif age > 30:
+        emit("high", "MANUAL-READINESS-STALE", ".app-review-readiness.json is older than 30 days", "Re-run the manual checks on the build you are submitting and update checked_on.")
+
+
+try:
+    run()
+except Exception:
+    sys.stdout.write("CRASH\n")
+finally:
+    if hasattr(signal, "SIGALRM"):
+        signal.alarm(0)
+    for watchdog in WATCHDOGS:
+        watchdog.cancel()
+    if not FINISH.acquire(False):
+        threading.Event().wait(5)
+        os._exit(0)
+sys.stdout.write("END\n")
+PYR
+)"; rc=$?
+  if [ "$rc" -ne 0 ] || [ "$(printf '%s\n' "$out" | tail -n 1)" != "END" ] || printf '%s\n' "$out" | grep_q -x 'CRASH'; then
+    finding critical "MANUAL-READINESS-UNREADABLE" ".app-review-readiness.json for $label could not be read" "Fix the file using templates/app-review-readiness.json as the shape. Until then no manual check counts as done."
+    flush_findings; return 0
+  fi
+  while IFS="$(printf '\t')" read -r sev id title fix; do
+    case "$sev" in
+      info) echo "${id/Manual checks./Manual checks for $label.}" ;;
+      critical|high|medium) case "$id" in MANUAL-[A-Z-]*) finding "$sev" "$id" "$title ($label)" "$fix" ;; esac ;;
+    esac
+  done <<READINESS_EOF
+$out
+READINESS_EOF
+  flush_findings
+}
+
 # The deadline list prints after the findings, and only for the stores this project ships to (issue #842).
 print_deadlines() {
   local hd py="" c plats=""
@@ -1625,13 +2126,14 @@ print_deadlines() {
 
 echo "== App Store Compliance Guard =="
 echo "Project. $DIR"
+rule_pack_line
 ROOTS="$(app_roots)"
 if [ -n "$ROOTS" ]; then
   PROJECT_ROOT="${DIR%/}"
   echo "Apps. $(printf '%s\n' "$ROOTS" | grep -c .) app roots, each scanned on its own"
   echo ""
   POOL_FW=""; SPLIT_NATIVE=""
-  if printf '%s\n' "$ROOTS" | sed 's:/$::' | grep -qxF "$PROJECT_ROOT"; then
+  if printf '%s\n' "$ROOTS" | sed 's:/$::' | grep -xF "$PROJECT_ROOT" >/dev/null; then
     NESTED_PRUNE=()
     while IFS= read -r OTHER; do
       [ -n "$OTHER" ] && [ "${OTHER%/}" != "$PROJECT_ROOT" ] || continue
@@ -1656,7 +2158,7 @@ EOF3
   while IFS= read -r ROOT; do
     [ -n "$ROOT" ] || continue
     INHERIT_FW=""
-    if [ -n "$POOL_FW" ] && { [ "${ROOT%/}" = "$PROJECT_ROOT" ] || printf '%s' "$SPLIT_NATIVE" | grep -qxF "${ROOT%/}"; }; then
+    if [ -n "$POOL_FW" ] && { [ "${ROOT%/}" = "$PROJECT_ROOT" ] || printf '%s' "$SPLIT_NATIVE" | grep_q -xF "${ROOT%/}"; }; then
       INHERIT_FW="$POOL_FW"
     fi
     NESTED_PRUNE=()
@@ -1672,6 +2174,11 @@ EOF2
     flush_findings
     # One scannable sibling must not speak for a root the store checks never ran on.
     # The project root scanned only beside a linked app, with no marker and nothing found, is not an app (#657).
+    if [ "${ROOT%/}" = "$PROJECT_ROOT" ] && [ "$IS_IOS" -eq 0 ] && [ "$IS_AND" -eq 0 ] && [ "$IS_WEB" -eq 0 ] && [ "$NEEDS_NATIVE" -eq 0 ] && ! dir_has_app_marker "$PROJECT_ROOT"; then
+      :
+    else
+      readiness_check "$ROOT" "$PROJECT_ROOT"
+    fi
     if [ "${ROOT%/}" = "$PROJECT_ROOT" ] && [ "$IS_IOS" -eq 0 ] && [ "$IS_AND" -eq 0 ] && [ "$IS_WEB" -eq 0 ] && [ "$NEEDS_NATIVE" -eq 0 ] && ! dir_has_app_marker "$PROJECT_ROOT"; then
       :
     elif [ "$IS_IOS" -eq 0 ] && [ "$IS_AND" -eq 0 ] && { [ "$IS_WEB" -eq 0 ] || [ "$NEEDS_NATIVE" -eq 1 ]; }; then
@@ -1694,8 +2201,14 @@ EOF
 else
   scan_tree
   flush_findings
+  readiness_check "$DIR" "$DIR"
+  RD_OTHER="$(find "$DIR" -mindepth 2 -maxdepth 8 -name .app-review-readiness.json -type f -print 2>/dev/null | grep -v -e '/node_modules/' -e '/Pods/' -e '/[.]pub-cache/' -e '/[.]git/' | head -1)"
+  if [ -n "$RD_OTHER" ]; then
+    echo "Manual checks. Another readiness file below this folder was not read, for example ${RD_OTHER#"${DIR%/}"/}. The guard reads the file in the folder you scan, so scan that app folder to use it."
+  fi
 fi
 print_deadlines
+
 
 # ===== summary and exit =====
 echo ""
@@ -1729,7 +2242,7 @@ fi
 if [ -n "$SCAN_ERROR" ]; then
   NOTE="NOT CHECKED. The scan could not run because $SCAN_ERROR."
   echo ""; echo "$NOTE"
-  if [ -n "$STDIN_JSON" ]; then emit_report 0; echo "$NOTE" >&2; exit 0; fi
+  if [ -n "$STDIN_JSON" ]; then block_unchecked "$NOTE"; emit_report 0; echo "$NOTE" >&2; exit 0; fi
   exit 1
 fi
 # A verdict line every time. Exit 0 with nothing scanned reads as a pass, so it is named and, run by hand, exits 1.
@@ -1743,7 +2256,7 @@ if [ -n "$UNCHECKED" ] || { [ "$ANY_NATIVE" -eq 0 ] && { [ "$ANY_WEB" -eq 0 ] ||
   elif [ "$ANY_NEEDS_NATIVE" -eq 1 ]; then NEXT="Next. This app has no ios or android folder yet. Run $NATIVE_HINT, then run the guard again."
   else NEXT="Next. Point the guard at the folder that holds your Xcode project or your Android app folder."; fi
   echo ""; echo "$NOTE"; echo "$NEXT"
-  if [ -n "$STDIN_JSON" ]; then emit_report 0; echo "$NOTE $NEXT" >&2; exit 0; fi
+  if [ -n "$STDIN_JSON" ]; then block_unchecked "$NOTE $NEXT"; emit_report 0; echo "$NOTE $NEXT" >&2; exit 0; fi
   exit 1
 fi
 echo ""

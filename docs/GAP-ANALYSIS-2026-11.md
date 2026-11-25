@@ -53,7 +53,7 @@ The regional pass for Asia-Pacific, Canada, Australia, and Brazil was still runn
 - Ofcom's amended Illegal Content Codes of Practice (issued 12 October 2026, in force 2 November 2026) and its categorised-services risk assessment dates. ofcom.org.uk answers scripted reads with a browser challenge, so the wording was seen only through a search index.
 - The UK under-16 social media regulations, reported to be laid in December 2026 for spring 2027. Secondary only.
 - The Alabama App Store Accountability Act challenge (CCIA, reported 28 October 2026). No docket found.
-- Korea MyData expansion dates and the Australia App Distribution Services Code on the live eSafety register, carried over from [#659](https://github.com/mjmirza/app-store-compliance/issues/659).
+- The Australia App Distribution Services Code on the live eSafety register, carried over from [#659](https://github.com/mjmirza/app-store-compliance/issues/659). The Korea MyData dates from the same issue were read on 23 November 2026 and are encoded as `KR-PIPA-SELF-TRANSMISSION-2027`.
 
 ## 7. Follow-up, 15 November 2026
 
@@ -65,3 +65,15 @@ A second pass read the App Store Connect release notes and the Upcoming Requirem
 | iOS and iPadOS apps uploaded to App Store Connect must target iOS 13 or later | [Upcoming Requirements](https://developer.apple.com/news/upcoming-requirements/) | APPLE-MIN-DEPLOYMENT-TARGET-IOS13, new guard check |
 
 Checked and not encoded. The INSTALLS analytics report deprecation in App Store Connect API 4.6 affects reporting, not review. The Republic of Korea consent schedule for converting subscription offers to standard paid subscriptions (30 September 2026) is tracked for the next sweep, because its detail page failed to load on the first read.
+
+## 8. Follow-up, 19 November 2026
+
+The 29 October 2026 announcement says trader status must be declared in Play Console starting in November 2026. Section 3 above treated that line as already covered. The linked Play Console page (answer 17594752), read on 19 November 2026, states two dates the announcement does not. Existing accounts must declare trader or non-trader status by 1 February 2027, and the EEA and UK online marketplace display starts 1 March 2027. Those are `GOOGLE-PLAY-TRADER-STATUS-2027` and `GOOGLE-PLAY-MARKETPLACE-DISPLAY-2027`. They are not the February 2027 technical quality deadline (`GOOGLE-TECH-QUALITY-FEB-2027`) and not Apple's DSA trader duty (`EU-DSA-TRADER-STATUS`).
+
+## 9. Follow-up, 23 November 2026
+
+The 29 October 2026 announcement (answer 18100766) also says that on 27 January 2027 account verification via phone call will no longer be a permitted use case for READ_CALL_LOG, and that the SMS User Consent API is a privacy-preserving alternative for account verification. Section 3 above did not record that sentence. Play Console Help answer 10208820, read on 23 November 2026, states the same date and names the Digital Credentials API, either directly or through a verification provider built upon it, and the SMS Retriever API. The exceptions table on that page still lists account verification via phone call until 27 January 2027. The September gap analysis had recorded 26 August 2026. The corrected deadline is `GOOGLE-PLAY-CALL-LOG-VERIFICATION-2027`.
+
+## 10. Follow-up, 25 November 2026
+
+Section 3 above records that, as of the 14 November sweep, Android developer verification named 2027 for the global step with no day. The Android Developers Blog post of 19 November 2026, read on 25 November 2026, says the global rollout begins in January 2027 with Google Play, Galaxy Store, Honor, Oppo, Xiaomi, Transsion, and Vivo, then expands over several months. Google names the month only. That is `ANDROID-DEVELOPER-VERIFICATION-GLOBAL-2027`, tracked as 1 January 2027. The same post expands limited distribution accounts from 20 to 50 authorized devices. The developer verification overview page, read the same day, still says 2027 with no month, and a card on that page still says 20 devices.

@@ -149,7 +149,7 @@ mk_unrelated_config_xml() {
   echo "$d"
 }
 
-# The real-world Codex-found scenario: a full cross-platform Flutter repo with BOTH ios/ and
+# A real-world scenario: a full cross-platform Flutter repo with BOTH ios/ and
 # android/ folders committed (the normal case), building only for Android.
 mk_flutter_both_platforms() {
   local d; d="$(mktemp -d)"; mkdir -p "$d/ios/Runner" "$d/android/app/src/main" "$d/lib"
@@ -197,9 +197,12 @@ OUT="$(bash "$GUARD" /no/such/dir/here 2>&1)"; RC=$?
 OUT="$(printf '%s' '{not valid json [[[ command : oops }}}' | bash "$GUARD" 2>&1)"; RC=$?
 [ "$RC" -eq 0 ] && ok "Malformed JSON stdin fail-open" || bad "Malformed JSON stdin (got $RC)"
 
-# 9 stress. Empty stdin does not hang or crash. /tmp may hold no app at all, which is exit 1 (not checked).
-OUT="$(printf '' | bash "$GUARD" /tmp 2>&1)"; RC=$?
-[ "$RC" -eq 0 ] || [ "$RC" -eq 1 ] || [ "$RC" -eq 2 ] && ok "Empty stdin handled" || bad "Empty stdin handled (got $RC)"
+# 9 stress. Empty stdin must not hang, and the named empty directory is not a project.
+D="$(mktemp -d)"
+OUT="$(printf '' | bash "$GUARD" "$D" 2>&1)"; RC=$?
+[ "$RC" -eq 1 ] && printf '%s
+' "$OUT" | grep -q '^NOT CHECKED\.' && ok "Empty stdin handled" || bad "Empty stdin handled (got $RC)"
+rm -rf "$D"
 
 # 9b fail-open. Hook mode with an empty payload must not fall back to scanning the working directory
 D="$(mk_ios_bad)"; OUT="$(cd "$D" && printf '' | bash "$GUARD" 2>&1)"; RC=$?
@@ -783,7 +786,7 @@ OUT="$(printf '{"tool_input":{"description":"%s","command":"npx eas submit --pla
 echo "$OUT" | grep -q 'App Store Compliance Guard' && [ "$RC" -eq 2 ] && ok "610-15 large payload is decoded and scanned" || bad "610-15 large payload is decoded and scanned (rc=$RC bytes=${#OUT})"
 rm -rf "$D"
 
-# ===== Issue #610, second round. Counterexamples from the adversarial review, pinned =====
+# ===== Issue #610. Counterexamples, pinned =====
 NOTOOLS="$(mktemp -d)"; for b in bash grep sed awk find xargs tr head mktemp cat rm printf wc sort uniq cut plutil xmllint dirname basename date; do p="$(command -v "$b" 2>/dev/null)"; [ -n "$p" ] && ln -s "$p" "$NOTOOLS/$b"; done
 NOJQ="$(mktemp -d)"; for b in bash grep sed awk find xargs tr head mktemp cat rm printf wc sort uniq cut plutil python3 xmllint dirname basename date; do p="$([ "$b" = python3 ] && pyenv which python3 2>/dev/null || command -v "$b" 2>/dev/null)"; [ -n "$p" ] && ln -s "$p" "$NOJQ/$b"; done
 P_ESCBS='{"tool_input":{"command":"gradlew '"$BS$BS$BS$BS$BS"'nbundleRelease"}}'
@@ -855,7 +858,7 @@ echo "$OUT" | grep -q 'App Store Compliance Guard' && [ "$RC" -eq 2 ] && ok "610
 rm -rf "$D"
 rm -rf "$NOTOOLS" "$NOJQ"
 
-# ===== Issue #610, third round. Reporter persona findings, pinned =====
+# ===== Issue #610. Reporter persona findings, pinned =====
 P_ECHO='{"tool_input":{"command":"echo '"$BS"'"eas submit --platform ios'"$BS"'""}}'
 P_GREP='{"tool_input":{"command":"grep -rn '"'"'eas submit'"'"' docs/"}}'
 P_COMMENT='{"tool_input":{"command":"ls -la # then npx eas submit --platform ios"}}'
@@ -925,7 +928,7 @@ for tier in "$PATH" "$NOJQ" "$NOTOOLS"; do
 done
 rm -rf "$D" "$NOTOOLS" "$NOJQ"
 
-# ===== Issue #610, fourth round. Hook-contract persona findings, pinned =====
+# ===== Issue #610. Hook-contract persona findings, pinned =====
 P_MCP='{"hook_event_name":"PreToolUse","tool_name":"mcp__some__runner","tool_input":{"command":"eas submit --platform ios"}}'
 P_EDIT='{"hook_event_name":"PreToolUse","tool_name":"Edit","tool_input":{"file_path":"x.md","new_string":"run eas submit"},"command":"eas submit --platform ios"}'
 P_NUL='{"tool_name":"Bash","tool_input":{"command":"./gradlew '"$BS"'u0000 bundleRelease"}}'
@@ -951,7 +954,7 @@ ERR="$(printf '%s' "$P_NUL" | CLAUDE_PROJECT_DIR="$D" bash "$GUARD" 2>&1 >/dev/n
 [ "$RC" -eq 0 ] && [ -z "$ERR" ] && ok "610-33 NUL byte in the command keeps stderr empty on a pass" || bad "610-33 NUL byte in the command keeps stderr empty on a pass (rc=$RC err=${ERR:0:80})"
 rm -rf "$D"
 
-# ===== Issue #610, fifth round. Second adversarial review, pinned. A submit can never hide in quotes =====
+# ===== Issue #610. Pinned. A submit can never hide in quotes =====
 P_QSUB='{"tool_input":{"command":"eas '"$BS"'"submit'"$BS"'" --platform ios"}}'
 P_SEMI_SHC='{"tool_input":{"command":"true;bash -c '"'"'eas submit --platform ios'"'"'"}}'
 P_PY_OS='{"tool_input":{"command":"python3 -c '"'"'import os; os.system('"$BS"'"eas submit --platform ios'"$BS"'")'"'"'"}}'
@@ -992,7 +995,7 @@ for tier in "$PATH" "$NOJQ"; do
 done
 rm -rf "$D" "$NOJQ"
 
-# ===== Issue #610, sixth round. Portability persona. the no-tools unescape must stay linear =====
+# ===== Issue #610. Portability persona. the no-tools unescape must stay linear =====
 # 100 a 300KB command reaches the no-tools tier and is unescaped and scanned in seconds, not minutes
 D="$(mk_ios_bad)"
 NOTOOLS="$(mktemp -d)"; for b in bash grep sed awk find xargs tr head mktemp cat rm printf wc sort uniq cut plutil xmllint dirname basename date; do p="$(command -v "$b" 2>/dev/null)"; [ -n "$p" ] && ln -s "$p" "$NOTOOLS/$b"; done
@@ -1001,7 +1004,7 @@ T0=$(date +%s); OUT="$(PATH="$NOTOOLS" CLAUDE_PROJECT_DIR="$D" bash "$GUARD" < "
 echo "$OUT" | grep -q 'App Store Compliance Guard' && [ "$RC" -eq 2 ] && [ $((T1-T0)) -lt 20 ] && ok "610-38 300KB command is scanned on the no-tools tier in $((T1-T0))s" || bad "610-38 300KB command is scanned on the no-tools tier (rc=$RC secs=$((T1-T0)) bytes=${#OUT})"
 rm -rf "$D" "$NOTOOLS"
 
-# ===== Issue #610, seventh round. Fuzz persona. a present but broken parser never disables the guard =====
+# ===== Issue #610. Fuzz persona. a present but broken parser never disables the guard =====
 mk_broken_tool_path() {  # $1 = name of the tool to break, everything else real, jq and python3 otherwise absent
   local d; d="$(mktemp -d)"
   for b in bash grep sed awk find xargs tr head mktemp cat rm printf wc sort uniq cut plutil xmllint dirname basename date; do p="$(command -v "$b" 2>/dev/null)"; [ -n "$p" ] && ln -s "$p" "$d/$b"; done
@@ -1034,7 +1037,7 @@ OUT="$(printf '%s' "$P_NESTED_TI" | PATH="$NOTOOLS" CLAUDE_PROJECT_DIR="$D" bash
 echo "$OUT" | grep -q 'App Store Compliance Guard' && [ "$RC" -eq 2 ] && ok "610-41 nested object inside tool_input is skipped over" || bad "610-41 nested object inside tool_input is skipped over (rc=$RC bytes=${#OUT})"
 rm -rf "$D" "$NOTOOLS"
 
-# ===== Issue #610, eighth round. Third adversarial review. an inert text command cannot smuggle a submit =====
+# ===== Issue #610. an inert text command cannot smuggle a submit =====
 P_ECHO_SUBST='{"tool_input":{"command":"echo '"$BS"'"$(eas submit --platform ios)'"$BS"'""}}'
 P_ECHO_PIPE='{"tool_input":{"command":"echo '"$BS"'"eas submit --platform ios'"$BS"'" | sh"}}'
 P_GIT_ALIAS='{"tool_input":{"command":"git -c alias.ship='"'"'!npx eas submit --platform ios'"'"' ship"}}'
@@ -1058,12 +1061,12 @@ OUT="$(printf '%s' "$P_GIT_MSG" | CLAUDE_PROJECT_DIR="$D" bash "$GUARD" 2>&1)"; 
 [ "$RC" -eq 0 ] && ok "610-44 git commit message scans and a clean project passes" || bad "610-44 git commit message scans and a clean project passes (rc=$RC)"
 rm -rf "$D"
 
-# ===== Issue #610, ninth round. Fourth adversarial review. a parser that passes its probe but fails for real falls through =====
+# ===== Issue #610. a parser that passes its probe but fails for real falls through =====
 mk_shim_path() {  # $1 tool name to shim, $2 shim body, $3 = jq|python3|none to keep real on PATH besides the shim
   local d; d="$(mktemp -d)"
   for b in bash grep sed awk find xargs tr head mktemp cat rm printf wc sort uniq cut plutil xmllint dirname basename date; do p="$(command -v "$b" 2>/dev/null)"; [ -n "$p" ] && ln -s "$p" "$d/$b"; done
   [ "$3" = jq ] && ln -s "$(command -v jq)" "$d/jq"; [ "$3" = python3 ] && ln -s "$(pyenv which python3 2>/dev/null || command -v python3)" "$d/python3"
-  printf '%s\n' "$2" > "$d/$1"; chmod +x "$d/$1"
+  rm -f "$d/$1"; printf '%s\n' "$2" > "$d/$1"; chmod +x "$d/$1"
   echo "$d"
 }
 P_UNI='{"tool_input":{"command":"cd apps/caf\xc3\xa9 && npx eas submit --platform ios"}}'
@@ -1109,7 +1112,7 @@ STDOUT="$(printf '{"tool_input":{"command":"fastlane deliver --submit"}}' | PATH
 echo "$STDOUT" | grep -q 'Summary\.' && [ "$RC" -eq 0 ] && ok "610-50 degraded routing keeps the pass report on stdout" || bad "610-50 degraded routing keeps the pass report on stdout (rc=$RC bytes=${#STDOUT})"
 rm -rf "$D" "$SHIM"
 
-# ===== Issue #610, tenth round. Fifth adversarial review. a backslash before a letter is the letter =====
+# ===== Issue #610. a backslash before a letter is the letter =====
 P_LETTER_ESC='{"tool_input":{"command":"eas s'"$BS$BS"'ubmit --platform ios"}}'
 P_CONT_ESC='{"tool_input":{"command":"eas '"$BS$BS$BS"'n'"$BS$BS"'submit --platform ios"}}'
 
@@ -1121,7 +1124,7 @@ for p in "$P_LETTER_ESC" "$P_CONT_ESC"; do
 done
 rm -rf "$D"
 
-# ===== Issue #610, eleventh round. A heredoc body is data unless an interpreter consumes it =====
+# ===== Issue #610. A heredoc body is data unless an interpreter consumes it =====
 P_HD_GH='{"tool_input":{"command":"gh pr create --title x --body-file - <<'"$BS"'"EOF'"$BS"'"'"$BS"'nFixes the guard so npx eas submit --platform ios is scanned.'"$BS"'nEOF"}}'
 P_HD_CAT='{"tool_input":{"command":"cat > notes.md <<EOF'"$BS"'nrun npx eas submit --platform ios later'"$BS"'nEOF"}}'
 P_HD_BASH='{"tool_input":{"command":"bash <<EOF'"$BS"'nnpx eas submit --platform ios'"$BS"'nEOF"}}'
@@ -1267,7 +1270,7 @@ OUT="$(bash "$GUARD" "$D" 2>&1)"; RC=$?
 ! echo "$OUT" | grep -q 'UNSAFE-DEEPLINK' && [ "$RC" -eq 0 ] && ok "612-12 a mitigation in another file still pairs with its trigger" || bad "612-12 a mitigation in another file still pairs with its trigger (rc=$RC)"
 rm -rf "$D"
 
-# ===== Issue #612, second round. The adversarial review findings, pinned =====
+# ===== Issue #612. Review findings, pinned =====
 # The project root is itself an Expo app and a nested Expo app lives under it. The child must not vouch for the root.
 mk_root_app_plus_child() {
   local d; d="$(mktemp -d)"; mkdir -p "$d/ios/App" "$d/apps/child/ios/Child"
@@ -1395,7 +1398,7 @@ OUT="$(bash "$GUARD" "$D" 2>&1)"; RC=$?
 echo "$OUT" | grep -q "^Project\. $D$" && ! echo "$OUT" | grep -q '^App\. ' && [ "$RC" -eq 0 ] && ok "612-23 a workspace inside the project bundle never splits the app" || bad "612-23 a workspace inside the project bundle never splits the app (rc=$RC)"
 rm -rf "$D"
 
-# ===== Issue #612, third round. Second adversarial review, pinned =====
+# ===== Issue #612. Pinned =====
 # 136 a trailing slash on the project path still keeps the nested app out of the root scan
 D="$(mk_root_app_plus_child)"
 OUT="$(bash "$GUARD" "$D/" 2>&1)"; RC=$?
@@ -1462,7 +1465,7 @@ OUT="$(bash "$GUARD" "$D" 2>&1)"; RC=$?
 echo "$OUT" | grep -q 'ANDROID-R8-OPTIMIZATION-MISSING' && ok "612-30 no Gradle file still means the R8 finding" || bad "612-30 no Gradle file still means the R8 finding (rc=$RC)"
 rm -rf "$D"
 
-# ===== Issue #612, fourth round. Third adversarial review, pinned =====
+# ===== Issue #612. Pinned =====
 # 143 a nested app whose name carries glob characters is still kept out of the root scan
 D="$(mktemp -d)"; mkdir -p "$D/ios/App" "$D/apps/[child]/ios/Child"
 printf '{"expo":{"name":"root"}}' > "$D/app.json"
@@ -1509,7 +1512,7 @@ OUT="$(bash "$GUARD" "$D" 2>&1)"; RC=$?
 echo "$OUT" | grep -q "^Project\. $D$" && ! echo "$OUT" | grep -q '^App\. ' && [ "$RC" -eq 2 ] && ok "612-34 a React Native module never becomes an app section" || bad "612-34 a React Native module never becomes an app section (rc=$RC)"
 rm -rf "$D"
 
-# ===== Issue #612, fifth round. Hook-contract persona findings, pinned =====
+# ===== Issue #612. Hook-contract persona findings, pinned =====
 # 147 a manifest inside a test fixture directory never becomes an app root
 D="$(mk_ios_bad)"; mkdir -p "$D/__tests__/fixtures/android/app/src/main"
 printf '<manifest><uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION"/></manifest>' > "$D/__tests__/fixtures/android/app/src/main/AndroidManifest.xml"
@@ -1583,7 +1586,7 @@ printf 'import CoreLocation\nlet m=CLLocationManager()\n' > "$D/ios/App/A.swift"
 printf 'X=1;\n' > "$D/examples/NativeDemo/Demo.xcodeproj/project.pbxproj"
 printf '<plist><dict></dict></plist>' > "$D/examples/NativeDemo/Demo/Info.plist"
 OUT="$(bash "$GUARD" "$D" 2>&1)"; RC=$?
-echo "$OUT" | grep -q "^Project\. $D$" && ! echo "$OUT" | grep -q '^App\. ' && [ "$RC" -eq 2 ] && ok "656-1 a nested demo Xcode project never splits a root framework app" || bad "656-1 a nested demo Xcode project never splits a root framework app (rc=$RC)"
+echo "$OUT" | grep -q "^Project\. $D$" && ! echo "$OUT" | grep -q '^App\. ' && [ "$RC" -eq 2 ] && ok "656-1 a nested demo Xcode project never splits a root framework app" || { bad "656-1 a nested demo Xcode project never splits a root framework app (rc=$RC)"; echo "$OUT" | grep -E '^(Project|Apps?)\. ' | head -5 | sed 's/^/    | /'; }
 rm -rf "$D"
 
 # 657 an app directory linked into the tree from outside it is followed one level and scanned
@@ -1605,7 +1608,7 @@ D="$(mk_linked_app)"
 OUT="$(bash "$GUARD" "$D" 2>&1)"; RC=$?
 echo "$OUT" | grep -q "^App\. $D/apps/linked$" && echo "$OUT" | grep -q 'MISSING-USAGE-DESCRIPTION' && [ "$RC" -eq 2 ] && ok "657-2 a linked app that is the only app is still scanned" || bad "657-2 a linked app that is the only app is still scanned (rc=$RC)"
 rm_linked "$D"
-# a clean linked app must never replace the scan of the project's own unmarked source (adversarial review)
+# a clean linked app must never replace the scan of the project's own unmarked source 
 D="$(mk_ios_bad)"; EXT="$(mk_ios_clean)"; mkdir -p "$EXT/App.xcodeproj" "$D/apps"; printf 'X=1;\n' > "$EXT/App.xcodeproj/project.pbxproj"
 ln -s "$EXT" "$D/apps/linked"
 OUT="$(bash "$GUARD" "$D" 2>&1)"; RC=$?
@@ -1727,12 +1730,16 @@ OUT="$(bash "$GUARD" "$D" 2>&1)"; RC=$?
 [ "$RC" -eq 1 ] && echo "$OUT" | grep -q 'expo prebuild' && ok "verdict-3 an Expo app with no native folders is told to prebuild" || bad "verdict-3 an Expo app with no native folders is told to prebuild (rc=$RC)"
 ERR="$(printf '{"tool_name":"Bash","tool_input":{"command":"eas submit -p ios"}}' | CLAUDE_PROJECT_DIR="$D" bash "$GUARD" 2>&1)"; RC=$?
 [ "$RC" -eq 0 ] && echo "$ERR" | grep -q 'NOT CHECKED' && ok "verdict-4 as a hook an unscannable project is reported and never blocked" || bad "verdict-4 as a hook an unscannable project is reported and never blocked (rc=$RC)"
+printf '{"tool_name":"Bash","tool_input":{"command":"eas submit -p ios"}}' | APP_STORE_GUARD_BLOCK_UNCHECKED=1 CLAUDE_PROJECT_DIR="$D" bash "$GUARD" >"$D/v.out" 2>"$D/v.err"; RC=$?
+[ "$RC" -eq 2 ] && grep -q 'APP_STORE_GUARD_BLOCK_UNCHECKED=1' "$D/v.err" && grep -q '^BLOCKED\. Nothing was checked' "$D/v.err" && [ ! -s "$D/v.out" ] && ok "verdict-7 as a hook an unscannable project blocks on stderr when BLOCK_UNCHECKED is set" || bad "verdict-7 as a hook an unscannable project blocks on stderr when BLOCK_UNCHECKED is set (rc=$RC)"
+OUT="$(APP_STORE_GUARD_BLOCK_UNCHECKED=1 bash "$GUARD" "$D" 2>&1)"; RC=$?
+[ "$RC" -eq 1 ] && echo "$OUT" | grep -q '^NOT CHECKED\.' && ! echo "$OUT" | grep -q '^BLOCKED' && ok "verdict-8 run by hand BLOCK_UNCHECKED keeps the NOT CHECKED exit 1" || bad "verdict-8 run by hand BLOCK_UNCHECKED keeps the NOT CHECKED exit 1 (rc=$RC)"
 rm -rf "$D"
 D="$(mk_ios_bad)"; OUT="$(bash "$GUARD" "$D" 2>&1)"; RC=$?
 [ "$RC" -eq 2 ] && echo "$OUT" | grep -q 'run the same command again' && ok "verdict-5 a block says what to do next" || bad "verdict-5 a block says what to do next (rc=$RC)"
 rm -rf "$D"
 
-# ===== Third review round. Each case failed before its fix. =====
+# ===== Each case failed before its fix. =====
 r3_hook() { python3 -c 'import json,sys; print(json.dumps({"tool_input":{"command":sys.argv[1]}}))' "$1" | CLAUDE_PROJECT_DIR="$2" bash "$GUARD" >/dev/null 2>"${3:-/dev/null}"; }
 D="$(mk_ios_bad)"
 r3_hook 'npm install "$(fastlane deliver)"' "$D"; RC=$?
@@ -2168,7 +2175,7 @@ for c in 'git commit -m x && eas submit -p ios' 'git commit -m "$(eas submit -p 
 done
 rm -rf "$D"
 
-# ===== Codex review round (October 2026). each case failed on the guard before its fix =====
+# ===== Review cases (October 2026). each case failed on the guard before its fix =====
 FL="fast""lane"
 cx_payload() {  # $1 json shape, $2 command, $3 cwd, $4 tool name. prints one payload
   python3 -c '
@@ -2658,7 +2665,7 @@ let s = "x"')"
 rr_hook "$FL deliver" "$D"
 rr_has 'NSCameraUsageDescription' && ok "r6-3 a camera mention in a block comment counts, as in 1.0.0" || bad "r6-3 a camera mention in a block comment counts, as in 1.0.0 (rc=$RC)"
 rm -rf "$D"
-# R7 Codex round 6
+# R7
 # R7-1 a C# verbatim string, a Rust string holding /*, and a mid-line // never hide a camera call
 D="$(mk_rr_ios '' 'let s = "x"')"
 printf '%s\n' 'var path = @"C:\"; var q = " // "; var camera = AVCaptureDevice.GetDefaultDevice(AVMediaTypes.Video);' > "$D/App/Cam.cs"
@@ -2712,7 +2719,7 @@ printf 'let url = CodePush.bundleURL()\n' > "$D/Native/Entry.swift"
 rr_run "$D"
 rr_has 'RN-OTA-UNDECLARED' && ok "r7-4 a brownfield host keeps the React Native checks" || bad "r7-4 a brownfield host keeps the React Native checks (rc=$RC)"
 rm -rf "$D"
-# R8 Codex round 7
+# R8
 # R8-1 a multi-line Rust string holding /* and quotes never hides a camera call
 D="$(mk_rr_ios '' 'let s = "x"')"
 printf '%s\n' 'let pattern = "first' '/* \"quoted\"' 'last";' 'let camera = unsafe {' '    AVCaptureDevice::defaultDeviceWithMediaType(AVMediaTypeVideo)' '};' '/* end */' > "$D/App/cam.rs"
@@ -2752,7 +2759,7 @@ for c in "nx ship mobile" "nx affected --target=ship" "bun run --filter @acme/mo
   [ "$RC" -eq 2 ] && ok "r8-5 scanned. $c" || bad "r8-5 scanned. $c (rc=$RC)"
 done
 rm -rf "$D"
-# R9 Codex round 8
+# R9
 # R9-1 a pointer write led by * and a line with code after a leading /* note */ are code
 D="$(mk_rr_ios '' 'let s = "x"')"
 printf '%s\n' 'void f(void **out) {' '*out = (__bridge void *)[AVCaptureDevice defaultDeviceWithMediaType:AVMediaTypeVideo];' '}' > "$D/App/P.m"
@@ -2791,7 +2798,7 @@ printf '#import <Cordova/CDV.h>\nUIWebView *webView;\n' > "$D/Native/Host.m"
 rr_run "$D"
 rr_has 'IONIC-UIWEBVIEW-DEPRECATED' && ok "r9-4 a Cordova host keeps the Ionic checks" || bad "r9-4 a Cordova host keeps the Ionic checks (rc=$RC)"
 rm -rf "$D"
-# R10 Codex round 9
+# R10
 # R10-1 a spaced pointer write and code after a closing */ count as triggers
 for src in '* out = [AVCaptureDevice defaultDeviceWithMediaType:AVMediaTypeVideo];' ' */ AVCaptureDevice *device = [AVCaptureDevice defaultDeviceWithMediaType:AVMediaTypeVideo];'; do
   D="$(mk_rr_ios '' 'let s = "x"')"
@@ -2837,7 +2844,7 @@ let dev = AVCaptureDevice.default(for: .video)')"
   rm -rf "$D"
 done
 
-# R11 Codex round 10
+# R11
 # R11-1 triggers read every line raw, as in 1.0.0, so a // line holding a live Swift interpolation still counts
 D="$(mk_rr_ios '' 'import AVFoundation
 let message = """
@@ -2875,7 +2882,7 @@ printf '%s\n' "signIn();" "const s = ' /* '; deleteAccount(); const end = ' */ '
 rr_run "$D"
 ! rr_has 'NO-ACCOUNT-DELETION' && ok "r11-4 quoted block markers keep the deletion between them" || bad "r11-4 quoted block markers keep the deletion between them (rc=$RC)"
 rm -rf "$D"
-# R12 Codex round 11
+# R12
 # R12-1 an Android word inside a quoted lane parameter is text, so an iOS lane keeps the Apple checks
 D="$(mk_rr_ios '' 'import AVFoundation
 let dev = AVCaptureDevice.default(for: .video)')"
@@ -2893,7 +2900,7 @@ let dev = AVCaptureDevice.default(for: .video)')"
 rr_hook "./gradlew bundleRelease" "$D"
 ! rr_has 'NSCameraUsageDescription' && ok "r12-1b a plain Android build still skips the Apple checks" || bad "r12-1b a plain Android build still skips the Apple checks (rc=$RC)"
 rm -rf "$D"
-# R13 Codex round 12
+# R13
 # R13-1 a harmless echo, a comment or a second line naming Android never vouches for an iOS lane
 D="$(mk_rr_ios '' 'import AVFoundation
 let dev = AVCaptureDevice.default(for: .video)')"
@@ -2920,7 +2927,7 @@ let v = RCTSurfaceHostingProxyRootView(bridge: b, moduleName: "x")' 'class MainA
   rr_has 'RN-PRIVACY-MANIFEST-MISSING' && ok "r13-2 a React host keeps the React Native checks. ${host%%$'\n'*}" || bad "r13-2 a React host keeps the React Native checks. ${host%%$'\n'*} (rc=$RC)"
   rm -rf "$D"
 done
-# R14 Codex round 13
+# R14
 # R14-1 a quoted lane name, a quoted variable or a quoted fastlane still counts as an iOS submit beside an Android one
 D="$(mk_rr_ios '' 'import AVFoundation
 let dev = AVCaptureDevice.default(for: .video)')"
@@ -2947,7 +2954,7 @@ printf 'import UIKit\nvar legacy: UIWebView?\n' > "$D/Native/Legacy.swift"
 rr_run "$D"
 rr_has 'IONIC-UIWEBVIEW-DEPRECATED' && ok "r14-2 a split native app keeps the root framework checks" || bad "r14-2 a split native app keeps the root framework checks (rc=$RC)"
 rm -rf "$D"
-# R15 Codex round 14
+# R15
 # R15-1 a wrapped Apple submit never borrows an Android flag from a harmless command, Android only needs main's rule too
 D="$(mk_rr_ios '' 'import AVFoundation
 let dev = AVCaptureDevice.default(for: .video)')"
@@ -2968,7 +2975,7 @@ printf '<widget id="com.acme.native"/>\n' > "$D/Native/config.xml"
 rr_run "$D"
 rr_has 'IONIC-UIWEBVIEW-DEPRECATED' && ok "r15-2 a framework marker in a split native app still counts for the root" || bad "r15-2 a framework marker in a split native app still counts for the root (rc=$RC)"
 rm -rf "$D"
-# R16 Codex round 15
+# R16
 # R16-1 a wrapped Apple submit never borrows an Android flag from an echo beside it
 D="$(mk_rr_ios '' 'import AVFoundation
 let dev = AVCaptureDevice.default(for: .video)')"
@@ -2986,7 +2993,7 @@ printf '{"name":"r","scripts":{"ship":"./gradlew %s"}}' "$BR" > "$D/package.json
 rr_hook "npm run ship -- --platform android" "$D"
 rr_has 'Command targets Android only' && ok "r16-2 a wrapped submit naming Android itself stays Android only" || bad "r16-2 a wrapped submit naming Android itself stays Android only (rc=$RC)"
 rm -rf "$D"
-# R17 Codex round 16
+# R17
 # R17-1 a submit quoted inside bash -c never takes an Android word from the outer arguments
 D="$(mk_rr_ios '' 'import AVFoundation
 let dev = AVCaptureDevice.default(for: .video)')"
@@ -3008,7 +3015,7 @@ rr_run "$D"
 rr_has 'BOTH-SUBSCRIPTION-HARD-CANCEL' && ok "r17-2 evidence split across a split native app still counts" || bad "r17-2 evidence split across a split native app still counts (rc=$RC)"
 [ "$(printf '%s' "$OUT" | grep -c 'BOTH-SUBSCRIPTION-HARD-CANCEL')" -le 1 ] && ok "r17-2b the pooled pass never lists a finding twice" || bad "r17-2b the pooled pass never lists a finding twice"
 rm -rf "$D"
-# R18 Codex round 17
+# R18
 # R18-1 a submit quoted inside any shell, by path or behind env or sudo, never takes the outer Android arguments
 D="$(mk_rr_ios '' 'import AVFoundation
 let dev = AVCaptureDevice.default(for: .video)')"
@@ -3037,7 +3044,7 @@ let dev = AVCaptureDevice.default(for: .video)')"
   [ "$RC" -eq 0 ] && rr_has 'Command targets Android only' && ok "r19 bash 3.2 reads an Android submit as Android only" || bad "r19 bash 3.2 reads an Android submit as Android only (rc=$RC)"
   rm -rf "$D"
 fi
-# R20 Codex round 18
+# R20
 # R20-1 a submit inside python -c or ruby -e never takes the outer Android arguments
 D="$(mk_rr_ios '' 'import AVFoundation
 let dev = AVCaptureDevice.default(for: .video)')"
@@ -3055,7 +3062,7 @@ D="$(mk_rr_ios '' 'class A { func signIn() {} }
 rr_run "$D"
 ! rr_has 'NO-ACCOUNT-DELETION' && ok "r20-2 a deletion after a closing block comment still counts" || bad "r20-2 a deletion after a closing block comment still counts (rc=$RC)"
 rm -rf "$D"
-# R21 Codex round 19
+# R21
 # R21-1 an exclusion-only pnpm filter reads every other package, so the submitting one is found
 D="$(mktemp -d)"; mkdir -p "$D/apps/docs" "$D/apps/mobile/App"
 printf '{"name":"root","private":true}\n' > "$D/package.json"
@@ -3067,14 +3074,14 @@ printf 'import AVFoundation\nlet d = AVCaptureDevice.default(for: .video)\n' > "
 rr_hook "pnpm --filter '!@acme/docs' run ship" "$D"
 [ "$RC" -eq 2 ] && ok "r21-1 an exclusion-only pnpm filter still finds the submitting package" || bad "r21-1 an exclusion-only pnpm filter still finds the submitting package (rc=$RC)"
 rm -rf "$D"
-# R22 Codex round 20
+# R22
 # R22-1 an escaped quote inside a string never hides a deletion written after it
 D="$(mk_rr_ios '' 'let ready = true')"
 printf '%s\n' 'signIn(); const s = "quote: \" // string"; function deleteAccount() { return api.deleteUser(); }' > "$D/App/account.js"
 rr_run "$D"
 ! rr_has 'NO-ACCOUNT-DELETION' && ok "r22-1 an escaped quote never hides a deletion after it" || bad "r22-1 an escaped quote never hides a deletion after it (rc=$RC)"
 rm -rf "$D"
-# R23 Codex round 21
+# R23
 # R23-1 the pooled pass keeps a critical finding that shares its id with a high one already listed
 D="$(mktemp -d)"; mkdir -p "$D/ios/Main.xcodeproj" "$D/android/app/src/main" "$D/androidRelease/src/main"
 printf '{"name":"r","dependencies":{"react-native":"0.74.0"}}' > "$D/package.json"
@@ -3096,14 +3103,14 @@ printf '%s\n' 'signIn(); const r = /"/; const s = " // "; function deleteAccount
 rr_run "$D"
 ! rr_has 'NO-ACCOUNT-DELETION' && ok "r23-2 a quote in a regex literal never hides a deletion" || bad "r23-2 a quote in a regex literal never hides a deletion (rc=$RC)"
 rm -rf "$D"
-# R24 Codex round 22
+# R24
 # R24-1 a JS regex literal holding a quote and a space never hides a deletion after it
 D="$(mk_rr_ios '' 'let ready = true')"
 printf '%s\n' 'signIn(); const r = /" /; const s = " // "; function deleteAccount() { return api.deleteUser(); }' > "$D/App/account.js"
 rr_run "$D"
 ! rr_has 'NO-ACCOUNT-DELETION' && ok "r24-1 a regex literal with a space never hides a deletion" || bad "r24-1 a regex literal with a space never hides a deletion (rc=$RC)"
 rm -rf "$D"
-# R25 Codex round 23
+# R25
 # R25-1 removing an inline comment never joins two words into deletion evidence
 D="$(mk_rr_ios '' 'let ready = true')"
 printf '%s\n' 'extern void sendSignup(void);' 'void createAccount(void) { sendSignup(); }' 'typedef int account;' 'account /* cache */deletion = 0;' > "$D/App/Account.m"
@@ -3174,6 +3181,102 @@ D="$(gs_ios Net.swift 'let r = getaddrinfo(host, nil, &hints, &res)')"
 gs_check "ipv6-2 getaddrinfo stays silent" "$D" 'APPLE-2.5.5-IPV4-ONLY-NETWORKING' 0
 D="$(gs_ios Net.swift 'let my_inet_addr_label = "x"')"
 gs_check "ipv6-3 a word containing inet_addr without a call stays silent" "$D" 'APPLE-2.5.5-IPV4-ONLY-NETWORKING' 0
+# The SwiftUI and UIKit accessibility checks read Swift and Objective-C. Compose uses the same Image( and Button names.
+D="$(gs_ios Card.kt 'Image(painter = logo, contentDescription = null)')"
+gs_check "a11y-1 a Compose Image in Kotlin is not a SwiftUI Image" "$D" 'APPLE-ACCESSIBILITY-VOICEOVER' 0
+D="$(gs_ios Logo.swift 'let logo = Image("logo")')"
+gs_check "a11y-2 a SwiftUI Image without a label is flagged" "$D" 'APPLE-ACCESSIBILITY-VOICEOVER' 1
+D="$(gs_ios Controls.h '@interface Controls : UIViewController @property(nonatomic,weak) IBOutlet UIButton *save; @end')"
+gs_check "a11y-h an Objective-C header outlet stays an Apple source" "$D" 'APPLE-ACCESSIBILITY-HAPTICS' 1
+D="$(gs_ios Card.kt 'Button(onClick = { save() }) { Text("Save") }')"
+gs_check "a11y-3 a Compose Button in Kotlin is not a SwiftUI Button" "$D" 'APPLE-ACCESSIBILITY-HAPTICS' 0
+D="$(gs_ios Save.swift 'let save = Button("Save") { store.save() }')"
+gs_check "a11y-4 a SwiftUI Button without haptics is flagged" "$D" 'APPLE-ACCESSIBILITY-HAPTICS' 1
+D="$(gs_ios Save.m 'UIButton *save = [UIButton buttonWithType:UIButtonTypeSystem];')"
+gs_check "a11y-5 a UIKit button in Objective-C without haptics is flagged" "$D" 'APPLE-ACCESSIBILITY-HAPTICS' 1
+D="$(gs_ios A.kt 'Image(painter = logo, contentDescription = null)')"; printf 'let logo = Image("logo")\n' > "$D/App/Z.swift"
+rr_run "$D"
+printf '%s\n' "$OUT" | grep -A1 'APPLE-ACCESSIBILITY-VOICEOVER' | grep -q 'file\. App/Z\.swift:1' && ok "gs a11y-6 the finding names the Swift file, not the Kotlin one" || bad "gs a11y-6 the finding names the Swift file, not the Kotlin one (rc=$RC)"
+rm -rf "$D"
+
+# Sign in with Apple in React Native and Expo apps. The JS libraries never name SignInWithApple or
+# ASAuthorizationAppleIDProvider in app code, so the 4.8 check must also know their packages and calls.
+mk_rn_social() {  # $1 = package.json dependencies, $2 = sign-in code
+  local d; d="$(mktemp -d)"; mkdir -p "$d/ios/App" "$d/src"
+  printf '<plist/>' > "$d/ios/App/Info.plist"
+  printf '{"name":"t","dependencies":{"react-native":"0.80.0"%s}}\n' "$1" > "$d/package.json"
+  printf 'import { GoogleSignIn } from "./google"\n%s\n' "$2" > "$d/src/signIn.ts"
+  echo "$d"
+}
+D="$(mk_rn_social ',"@invertase/react-native-apple-authentication":"2.5.1"' 'const r = await appleAuth.performRequest({ requestedOperation: appleAuth.Operation.LOGIN })')"
+OUT="$(bash "$GUARD" "$D" 2>&1)"
+rr_has 'Coverage. complete ios=1' && ! rr_has 'APPLE-4.8-SOCIAL-LOGIN-ONLY' && ok "siwa-1 React Native Sign in with Apple (react-native-apple-authentication) counts" || bad "siwa-1 React Native Sign in with Apple (react-native-apple-authentication) counts"
+rm -rf "$D"
+D="$(mk_rn_social ',"expo-apple-authentication":"7.2.0"' 'const c = await AppleAuthentication.signInAsync({ requestedScopes: [] })')"
+OUT="$(bash "$GUARD" "$D" 2>&1)"
+rr_has 'Coverage. complete ios=1' && ! rr_has 'APPLE-4.8-SOCIAL-LOGIN-ONLY' && ok "siwa-2 Expo Sign in with Apple (expo-apple-authentication) counts" || bad "siwa-2 Expo Sign in with Apple (expo-apple-authentication) counts"
+rm -rf "$D"
+D="$(mk_rn_social '' 'export const signIn = () => GoogleSignIn.signIn()')"
+OUT="$(bash "$GUARD" "$D" 2>&1)"
+rr_has 'APPLE-4.8-SOCIAL-LOGIN-ONLY' && ok "siwa-3 social login with no Sign in with Apple at all is still flagged" || bad "siwa-3 social login with no Sign in with Apple at all is still flagged"
+rm -rf "$D"
+# The package alone is not a login. Installed but unused, or used only in an Android file, is still flagged.
+D="$(mk_rn_social ',"expo-apple-authentication":"7.2.0"' 'export const signIn = () => GoogleSignIn.signIn()')"
+OUT="$(bash "$GUARD" "$D" 2>&1)"
+rr_has 'APPLE-4.8-SOCIAL-LOGIN-ONLY' && ok "siwa-4 the Apple package with no sign-in call is still flagged" || bad "siwa-4 the Apple package with no sign-in call is still flagged"
+rm -rf "$D"
+D="$(mk_rn_social ',"@invertase/react-native-apple-authentication":"2.5.1"' 'export const signIn = () => GoogleSignIn.signIn()')"
+printf 'import { appleAuthAndroid } from "@invertase/react-native-apple-authentication"
+export const a = () => appleAuthAndroid.signIn()
+' > "$D/src/signIn.android.ts"
+OUT="$(bash "$GUARD" "$D" 2>&1)"
+rr_has 'APPLE-4.8-SOCIAL-LOGIN-ONLY' && ok "siwa-5 Apple sign-in used only on Android is still flagged" || bad "siwa-5 Apple sign-in used only on Android is still flagged"
+rm -rf "$D"
+D="$(mk_rn_social ',"@invertase/react-native-apple-authentication":"2.5.1"' 'export const signIn = () => GoogleSignIn.signIn()')"
+printf 'import { AppleButton, appleAuthAndroid } from "@invertase/react-native-apple-authentication"\nexport const B = () => <AppleButton onPress={() => appleAuthAndroid.signIn()} />\n' > "$D/src/Login.android.tsx"
+OUT="$(bash "$GUARD" "$D" 2>&1)"
+rr_has 'APPLE-4.8-SOCIAL-LOGIN-ONLY' && ok "siwa-6 an Android-only AppleButton is still flagged" || bad "siwa-6 an Android-only AppleButton is still flagged"
+rm -rf "$D"
+D="$(mk_rn_social ',"expo-apple-authentication":"7.2.0"' 'export const t = AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN')"
+OUT="$(bash "$GUARD" "$D" 2>&1)"
+rr_has 'Coverage. complete ios=1' && rr_has 'APPLE-4.8-SOCIAL-LOGIN-ONLY' && ok "siwa-7 the Expo button type enum alone is still flagged" || bad "siwa-7 the Expo button type enum alone is still flagged"
+rm -rf "$D"
+D="$(mk_rn_social ',"@invertase/react-native-apple-authentication":"2.5.1"' 'export const out = () => appleAuth.performRequest({ requestedOperation: appleAuth.Operation.LOGOUT })')"
+OUT="$(bash "$GUARD" "$D" 2>&1)"
+rr_has 'Coverage. complete ios=1' && rr_has 'APPLE-4.8-SOCIAL-LOGIN-ONLY' && ok "siwa-8 an Apple logout request is still flagged" || bad "siwa-8 an Apple logout request is still flagged"
+rm -rf "$D"
+D="$(mk_rn_social ',"expo-apple-authentication":"7.2.0"' '// TODO implement AppleAuthentication.signInAsync()')"
+OUT="$(bash "$GUARD" "$D" 2>&1)"
+rr_has 'Coverage. complete ios=1' && rr_has 'APPLE-4.8-SOCIAL-LOGIN-ONLY' && ok "siwa-9 a sign-in call inside a comment is still flagged" || bad "siwa-9 a sign-in call inside a comment is still flagged"
+rm -rf "$D"
+D="$(mk_rn_social ',"expo-apple-authentication":"7.2.0"' 'export const B = () => <AppleAuthentication.AppleAuthenticationButton onPress={() => {}} />')"
+OUT="$(bash "$GUARD" "$D" 2>&1)"
+rr_has 'Coverage. complete ios=1' && rr_has 'APPLE-4.8-SOCIAL-LOGIN-ONLY' && ok "siwa-10 a rendered Expo Apple button with no sign-in call is still flagged" || bad "siwa-10 a rendered Expo Apple button with no sign-in call is still flagged"
+rm -rf "$D"
+D="$(mk_rn_social ',"@invertase/react-native-apple-authentication":"2.5.1"' 'export const o = { requestedOperation: appleAuth.Operation.LOGIN }')"
+OUT="$(bash "$GUARD" "$D" 2>&1)"
+rr_has 'Coverage. complete ios=1' && rr_has 'APPLE-4.8-SOCIAL-LOGIN-ONLY' && ok "siwa-11 a LOGIN options object with no performRequest call is still flagged" || bad "siwa-11 a LOGIN options object with no performRequest call is still flagged"
+rm -rf "$D"
+D="$(mk_rn_social ',"expo-apple-authentication":"7.2.0"' '/* Legacy flow
+AppleAuthentication.signInAsync()
+*/')"
+OUT="$(bash "$GUARD" "$D" 2>&1)"
+rr_has 'Coverage. complete ios=1' && rr_has 'APPLE-4.8-SOCIAL-LOGIN-ONLY' && ok "siwa-12 a sign-in call inside a block comment is still flagged" || bad "siwa-12 a sign-in call inside a block comment is still flagged"
+rm -rf "$D"
+D="$(mk_rn_social ',"@invertase/react-native-apple-authentication":"2.5.1"' 'const unused = { requestedOperation: appleAuth.Operation.LOGIN };
+export const logout = () => appleAuth.performRequest({
+  requestedOperation: appleAuth.Operation.LOGOUT
+})')"
+OUT="$(bash "$GUARD" "$D" 2>&1)"
+rr_has 'Coverage. complete ios=1' && rr_has 'APPLE-4.8-SOCIAL-LOGIN-ONLY' && ok "siwa-13 a LOGIN options object beside a LOGOUT request is still flagged" || bad "siwa-13 a LOGIN options object beside a LOGOUT request is still flagged"
+rm -rf "$D"
+D="$(mk_rn_social ',"@invertase/react-native-apple-authentication":"2.5.1"' 'export const login = () => appleAuth.performRequest({
+  requestedOperation: appleAuth.Operation.LOGIN,
+  requestedScopes: [appleAuth.Scope.EMAIL],
+})')"
+OUT="$(bash "$GUARD" "$D" 2>&1)"
+rr_has 'Coverage. complete ios=1' && ! rr_has 'APPLE-4.8-SOCIAL-LOGIN-ONLY' && ok "siwa-14 a multiline Invertase LOGIN request counts" || bad "siwa-14 a multiline Invertase LOGIN request counts"
+rm -rf "$D"
 
 D="$(gs_ios H.swift 'let s = HKHealthStore()
 let c = CKContainer.default()')"
@@ -3190,6 +3293,33 @@ D="$(mk_android_perm '<application><service android:name=".S" android:foreground
 gs_check "fgs-1 specialUse without the subtype property is flagged" "$D" 'ANDROID-FGS-SPECIAL-USE-UNDECLARED' 1
 D="$(mk_android_perm '<application><service android:name=".S" android:foregroundServiceType="specialUse"><property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="sync"/></service></application>')"
 gs_check "fgs-2 specialUse with the subtype property stays silent" "$D" 'ANDROID-FGS-SPECIAL-USE-UNDECLARED' 0
+# A <queries> intent names apps this app wants to see (package visibility). It declares no deep link.
+D="$(mk_android_perm '<queries><intent><action android:name="android.intent.action.VIEW"/><data android:scheme="tel"/></intent></queries>')"
+gs_check "dlq-1 a scheme inside <queries> is not a deep link" "$D" 'BOTH-UNSAFE-DEEPLINK' 0
+D="$(mk_android_perm '<queries>
+  <intent>
+    <action android:name="android.intent.action.SENDTO" />
+    <data android:scheme="mailto" />
+  </intent>
+</queries>')"
+gs_check "dlq-2 a scheme inside a multi-line <queries> is not a deep link" "$D" 'BOTH-UNSAFE-DEEPLINK' 0
+D="$(mk_android_perm '<queries><intent><action android:name="android.intent.action.VIEW"/><data android:scheme="tel"/></intent></queries><application><activity android:name=".Main"><intent-filter><action android:name="android.intent.action.VIEW"/><data android:scheme="acme"/></intent-filter></activity></application>')"
+gs_check "dlq-3 a custom scheme in an intent-filter next to <queries> is flagged" "$D" 'BOTH-UNSAFE-DEEPLINK' 1
+D="$(mk_android_perm '<!-- Optional <queries> for package visibility --><application><activity android:name=".Main"><intent-filter><data android:scheme="acme"/></intent-filter></activity></application>')"
+gs_check "dlq-comment a <queries> inside a comment does not hide a deep link" "$D" 'BOTH-UNSAFE-DEEPLINK' 1
+D="$(mk_android_perm '')"; rm "$D/android/app/src/main/AndroidManifest.xml"
+printf '%s\n' '<manifest><application><activity android:name=".Main"><intent-filter><data android:scheme="acme"/></intent-filter></activity></application></manifest>' > "$D/android/app/src/main/AndroidManifest-release.xml"
+gs_check "dlq-renamed a scheme in a renamed manifest is still read" "$D" 'BOTH-UNSAFE-DEEPLINK' 1
+D="$(mk_android_perm '<application><activity android:name=".Main"><intent-filter><action android:name="android.intent.action.VIEW"/><data android:scheme="acme"/></intent-filter></activity></application>')"
+gs_check "dlq-4 a custom scheme in an intent-filter is flagged" "$D" 'BOTH-UNSAFE-DEEPLINK' 1
+D="$(mk_android_perm '
+<queries><intent><data android:scheme="tel" /></intent></queries>
+<application><activity android:name=".Main"><intent-filter>
+<data android:scheme="acme" />
+</intent-filter></activity></application>')"
+rr_run "$D"
+printf '%s\n' "$OUT" | grep -A1 'BOTH-UNSAFE-DEEPLINK' | grep -q 'file\. android/app/src/main/AndroidManifest\.xml:4$' && ok "gs dlq-5 the finding names the intent-filter scheme, not the <queries> one" || bad "gs dlq-5 the finding names the intent-filter scheme, not the <queries> one (rc=$RC)"
+rm -rf "$D"
 
 D="$(mk_android_perm '')"; printf "android { compileSdk 36\n defaultConfig { ndk { abiFilters 'armeabi-v7a' } } }\n" > "$D/android/app/build.gradle"
 gs_check "abi-1 armeabi-v7a only is flagged" "$D" 'ANDROID-64BIT-ABI-MISSING' 1
@@ -3260,6 +3390,614 @@ D="$(mk_android_perm '')"; printf 'android { compileSdk = 36\n defaultConfig { n
 gs_check "abi-14 abiFilters.remove of the 64-bit ABI is flagged" "$D" 'ANDROID-64BIT-ABI-MISSING' 1
 D="$(mk_android_perm '')"; printf 'android { compileSdk = 36\n defaultConfig { ndk {\n abiFilters += setOf("arm64-v8a")\n abiFilters.clear()\n abiFilters += "armeabi-v7a"\n } } }\n' > "$D/android/app/build.gradle.kts"
 gs_check "abi-15 abiFilters.clear drops earlier ABIs" "$D" 'ANDROID-64BIT-ABI-MISSING' 1
+# ANDROID-ADVERTISING-ID false positives. tools:node="remove" strips the AD_ID permission that an SDK such as
+# firebase-analytics merges in, and AD_ID at the end of a longer word (THREAD_ID) is not the advertising ID.
+AD_PERM='android:name="com.google.android.gms.permission.AD_ID"'
+D="$(mk_android_perm "<uses-permission $AD_PERM tools:node=\"remove\"/>")"
+gs_check "adid-1 a removed AD_ID permission stays silent" "$D" 'ANDROID-ADVERTISING-ID' 0
+D="$(mk_android_perm "<uses-permission $AD_PERM tools:node=\"remove\" tools:selector=\"com.example.library1\"/>")"
+gs_check "adid-sel a removal scoped to one library still counts" "$D" 'ANDROID-ADVERTISING-ID' 1
+D="$(mk_android_perm "<uses-permission
+    $AD_PERM
+    tools:node=\"remove\" />")"
+gs_check "adid-2 a removed AD_ID permission split across lines stays silent" "$D" 'ANDROID-ADVERTISING-ID' 0
+D="$(mk_android_perm '')"; printf '{ "Values": { "TELEGRAM_THREAD_ID": "" } }\n' > "$D/local.settings.json"
+gs_check "adid-3 THREAD_ID in a config file stays silent" "$D" 'ANDROID-ADVERTISING-ID' 0
+D="$(mk_android_perm "<uses-permission $AD_PERM/>")"
+gs_check "adid-4 a declared AD_ID permission is flagged" "$D" 'ANDROID-ADVERTISING-ID' 1
+D="$(mk_android_perm '<uses-permission android:name="android.permission.ACCESS_ADSERVICES_AD_ID"/>')"
+gs_check "adid-5 a declared ACCESS_ADSERVICES_AD_ID permission is flagged" "$D" 'ANDROID-ADVERTISING-ID' 1
+D="$(mk_android_perm "<uses-permission $AD_PERM tools:node=\"remove\"/>")"; mkdir -p "$D/android/app/src/main/java"
+printf 'val info = AdvertisingIdClient.getAdvertisingIdInfo(context)\n' > "$D/android/app/src/main/java/Ads.kt"
+rr_run "$D"
+printf '%s\n' "$OUT" | grep -A1 'ANDROID-ADVERTISING-ID' | grep -q '^      file\. android/app/src/main/java/Ads\.kt:1$' && ok "gs adid-6 a removed permission never hides a getAdvertisingIdInfo call, and the finding names the call" || bad "gs adid-6 a removed permission never hides a getAdvertisingIdInfo call, and the finding names the call"
+rm -rf "$D"
+# X feedback, November 2026. a pre-permission button titled Allow, per Apple HIG Privacy.
+# Clean fixtures, so a pass means exit 0, CLEAR, and the finding at MEDIUM or absent.
+PP_KEYS='<key>NSLocationWhenInUseUsageDescription</key><string>Shows the nearest mosque on the map.</string><key>NSCameraUsageDescription</key><string>Scans a QR code to join a group.</string>'
+pp_case() {  # $1 label, $2 file name in App, $3 content, $4 expect the finding (1) or not (0)
+  local d has=0 sev=1; d="$(mk_rr_ios "$PP_KEYS" 'let ready = true')"; printf '%s\n' "$3" > "$d/App/$2"; rr_run "$d"
+  rr_has 'APPLE-5.1.1-PRE-PROMPT-ALLOW-BUTTON' && has=1
+  [ "$has" = "1" ] && ! rr_has '\[MEDIUM\][[:space:]]*APPLE-5.1.1-PRE-PROMPT-ALLOW-BUTTON' && sev=0
+  if [ "$RC" -eq 0 ] && rr_has '^CLEAR\.' && [ "$has" = "$4" ] && [ "$sev" = "1" ]; then ok "$1"; else bad "$1 (rc=$RC has=$has)"; fi
+  rm -rf "$d"
+}
+pp_case "pp-1 an Allow button beside a permission request is flagged" Pre.swift 'import SwiftUI
+struct P: View { var body: some View { Button("Allow Location") { CLLocationManager().requestWhenInUseAuthorization() } } }' 1
+pp_case "pp-2 a Continue button stays silent" Pre.swift 'import SwiftUI
+struct P: View { var body: some View { Button("Continue") { CLLocationManager().requestWhenInUseAuthorization() } } }' 0
+pp_case "pp-3 an Allow button with no permission request in the file stays silent" Pre.swift 'Button("Allow Location") { }' 0
+pp_case "pp-4 the same Allow button in a Kotlin file never raises the Apple rule" Pre.kt 'Button("Allow") { CLLocationManager().requestWhenInUseAuthorization() }' 0
+pp_case "pp-5 a Settings toggle labelled Allow stays silent" Settings.swift 'import SwiftUI
+struct S: View { @State var on = false
+var body: some View { Toggle(isOn: $on) { Text("Allow notifications") } } }
+func ask() { CLLocationManager().requestWhenInUseAuthorization() }' 0
+pp_case "pp-6 an Allow button inside a comment stays silent" Pre.swift '// Button("Allow") { manager.requestWhenInUseAuthorization() }
+let x = 1' 0
+pp_case "pp-7 an iOS-shaped Allow button in an .android.tsx file stays silent" Screen.android.tsx '<Button title="Allow" onPress={() => request(PERMISSIONS.IOS.CAMERA)} />' 0
+pp_case "pp-8 the same React Native button in a shared file is flagged" Screen.tsx '<Button title="Allow" onPress={() => request(PERMISSIONS.IOS.CAMERA)} />' 1
+pp_case "pp-9 an Objective-C Allow title beside requestAccessForMediaType is flagged" Pre.m '[button setTitle:@"Allow" forState:UIControlStateNormal];
+[AVCaptureDevice requestAccessForMediaType:AVMediaTypeVideo completionHandler:^(BOOL g){}];' 1
+pp_case "pp-10 a generic api.request() is not a permission request" Net.swift 'let b = Button("Allow") { api.request() }' 0
+pp_case "pp-11 a commented-out permission request stays silent" Pre.swift 'Button("Allow downloads") { allowDownloads = true }
+// manager.requestWhenInUseAuthorization()' 0
+pp_case "pp-12 a button and request inside a block comment stay silent" Pre.swift '/*
+Button("Allow") { manager.requestWhenInUseAuthorization() }
+*/
+let z = 2' 0
+pp_case "pp-13 a trailing comment on a code line stays silent" Pre.swift 'let y = 1 // Button("Allow") { m.requestWhenInUseAuthorization() }' 0
+pp_case "pp-15 a URL string before the button does not hide it" Pre.swift 'let u = "https://x.io/a"; Button("Allow") { m.requestWhenInUseAuthorization() }' 1
+
+pp_case "pp-16 a button inside a nested Swift comment stays silent" Pre.swift '/* outer
+   /* nested */
+   Button("Allow") { m.requestWhenInUseAuthorization() }
+*/
+let k = 1' 0
+pp_case "pp-17 a comment marker inside a multiline string does not hide the button" Pre.swift 'let explanation = """
+Show /* to describe a wildcard.
+"""
+Button("Allow") { m.requestWhenInUseAuthorization() }' 1
+pp_case "pp-18 an Allow text outside the button closure stays silent" Pre.swift 'Button(action: { m.requestWhenInUseAuthorization() }) {
+    Text("Continue")
+}
+Text("Allow Location")' 0
+pp_case "pp-20 an Objective-C title with a space after the colon is flagged" Pre.m '[button setTitle: @"Allow" forState:UIControlStateNormal];
+[AVCaptureDevice requestAccessForMediaType:AVMediaTypeVideo
+                       completionHandler:^(BOOL g){}];' 1
+pp_case "pp-22 a Swift raw string with a quote and comment marker does not hide the button" Pre.swift 'let e = #"a quote " and /* literal text"#
+Button("Allow") { manager.requestWhenInUseAuthorization() }' 1
+pp_case "pp-23 a JS template literal spanning lines does not hide the button" Screen.tsx 'const t = `line one
+line two /* not a comment`;
+export const S = () => <Button title="Allow" onPress={() => request(PERMISSIONS.IOS.CAMERA)} />' 1
+BIG="$(printf 'Button("Allow") { m.requestWhenInUseAuthorization() }\n'; seq 1 100000 | sed 's/^/let v/;s/$/ = 1/')"
+pp_case "pp-21 a match early in a very large file is not lost" Big.swift "$BIG" 1
+
+# Every report names its rule pack and the range of source dates, so a stale checklist is visible.
+D="$(gs_ios ok.swift 'let a = 1')"; rr_run "$D"
+rr_has 'Rule pack. v[0-9]' && rr_has 'dated sources were verified between' && [ "$RC" -eq 0 ] && ok "rp-1 the report names its rule pack and date range" || bad "rp-1 the report names its rule pack and date range (rc=$RC)"
+rp_pack() {  # $1 JSON for the deadlines file. sets SP to a copied guard that reads it
+  SP="$(mktemp -d)"; mkdir -p "$SP/agent-os/hooks" "$SP/data"; cp "$HERE/app-store-compliance-guard.sh" "$SP/agent-os/hooks/"
+  printf '9.9.9\n' > "$SP/VERSION"; printf '%s\n' "$1" > "$SP/data/regulatory-deadlines.json"
+}
+rp_run() { OUT="$(env "$@" bash "$SP/agent-os/hooks/app-store-compliance-guard.sh" "$D" 2>&1)"; RC=$?; }
+OLD61="$(python3 -c 'import datetime; print(datetime.date.today() - datetime.timedelta(days=61))')"
+rp_pack "{\"deadlines\":[{\"verified_on\": \"$OLD61\"}]}"; rp_run APP_STORE_GUARD_STALE_DAYS=abc
+rr_has 'Rule pack STALE. Older than 60 days' && [ "$RC" -eq 0 ] && ok "rp-2 a non-numeric window falls back to 60 days" || bad "rp-2 a non-numeric window falls back to 60 days (rc=$RC)"
+rm -rf "$SP"; rp_pack '{"deadlines":[{"verified_on": "2020-01-01"}]}'; rp_run X=1
+rr_has 'v9.9.9. Its 1 dated sources were verified between 2020-01-01 and 2020-01-01' && rr_has 'Rule pack STALE' && [ "$RC" -eq 0 ] && ok "rp-3 an old rule pack is marked stale" || bad "rp-3 an old rule pack is marked stale (rc=$RC)"
+rm -rf "$SP"; rp_pack '{"deadlines":[{"verified_on": "not-a-date"}]}'; rp_run X=1
+rr_has 'Rule pack freshness not checked' && [ "$RC" -eq 0 ] && ok "rp-4 an unreadable date says freshness was not checked" || bad "rp-4 an unreadable date says freshness was not checked (rc=$RC)"
+rm -rf "$SP"; rp_pack "{\"deadlines\":[{\"verified_on\": \"$(date +%Y-%m-%d)\"},{\"verified_on\": \"2020-01-01\"}]}"; rp_run X=1
+rr_has '1 of 2 dated sources were last verified more than 60 days ago' && ! rr_has 'Rule pack STALE' && [ "$RC" -eq 0 ] && ok "rp-5 one fresh source cannot hide an old one" || bad "rp-5 one fresh source cannot hide an old one (rc=$RC)"
+rm -rf "$SP"
+
+SHIM="$(mktemp -d)"; printf '#!/bin/sh\ncase "$1" in -v*|-d) exit 1 ;; esac\nexec /bin/date "$@"\n' > "$SHIM/date"; chmod +x "$SHIM/date"
+OUT="$(PATH="$SHIM:$PATH" bash "$GUARD" "$D" 2>&1)"; RC=$?
+rr_has 'Rule pack freshness not checked' && ! rr_has 'days ago' && [ "$RC" -eq 0 ] && ok "rp-6 a failing date step reads as not checked, never as a number" || bad "rp-6 a failing date step reads as not checked, never as a number (rc=$RC)"
+rm -rf "$SHIM"
+
+# Manual readiness. what a scan cannot prove, recorded by the team.
+TODAY="$(date +%Y-%m-%d)"; TOMORROW="$(python3 -c 'import datetime; print(datetime.date.today() + datetime.timedelta(days=1))')"
+ALLPASS='"demo_account":"pass","live_backend":"pass","review_notes":"pass","screenshots_match_build":"pass","account_deletion_device_test":"pass","privacy_labels_match_runtime":"pass","iap_reachable_by_reviewer":"pass"'
+rd_case() {  # $1 label, $2 json, $3 env assignment or "", $4 expected rc, $5 grep that must match, $6 grep that must not match
+  printf '%s' "$2" > "$D/.app-review-readiness.json"
+  if [ -n "$3" ]; then OUT="$(env "$3" bash "$GUARD" "$D" 2>&1)"; RC=$?; else rr_run "$D"; fi
+  if [ "$RC" -eq "$4" ] && { [ -z "$5" ] || rr_has "$5"; } && { [ -z "$6" ] || ! rr_has "$6"; }; then ok "$1"; else bad "$1 (rc=$RC)"; fi
+}
+rm -f "$D/.app-review-readiness.json"; rr_run "$D"
+rr_has 'Manual checks for this project. Not attested' && rr_has 'an in-app purchase the reviewer can reach' && [ "$RC" -eq 0 ] && ok "rd-1 no readiness file is named but does not block" || bad "rd-1 no readiness file is named but does not block (rc=$RC)"
+OUT="$(APP_STORE_GUARD_REQUIRE_READINESS=1 bash "$GUARD" "$D" 2>&1)"; RC=$?
+rr_has 'MANUAL-READINESS-MISSING' && [ "$RC" -eq 2 ] && ok "rd-2 required readiness with no file blocks" || bad "rd-2 required readiness with no file blocks (rc=$RC)"
+rd_case "rd-3 a failed demo account blocks" "{\"checked_on\":\"$TODAY\",\"checks\":{\"demo_account\":\"fail\"}}" "" 2 'MANUAL-DEMO-ACCOUNT-FAILED' ''
+rd_case "rd-4 open items without enforce only inform" "{\"checked_on\":\"$TODAY\",\"checks\":{\"demo_account\":\"pass\"}}" "" 0 'Still open' 'UNVERIFIED'
+rd_case "rd-5 enforce turns an open item into a block" "{\"enforce\":true,\"checked_on\":\"$TODAY\",\"checks\":{\"demo_account\":\"pass\"}}" "" 2 'MANUAL-LIVE-BACKEND-UNVERIFIED' ''
+rd_case "rd-6 a readiness file that cannot be read blocks, since a fail inside it cannot be seen" '{"checks": [1,2' "" 2 'MANUAL-READINESS-UNREADABLE' ''
+rd_case "rd-7 an old attestation is flagged stale" "{\"checked_on\":\"2020-01-01\",\"checks\":{$ALLPASS}}" "" 0 '7 of 7 attested' ''
+rr_has 'MANUAL-READINESS-STALE' && ok "rd-7b the stale attestation names itself" || bad "rd-7b the stale attestation names itself"
+rd_case "rd-8 required readiness with an empty checks list blocks" '{"checks":[]}' "APP_STORE_GUARD_REQUIRE_READINESS=1" 2 'MANUAL-READINESS-UNREADABLE' ''
+rd_case "rd-9 enforce in a broken file still blocks" '{"enforce":true,"checks":[]}' "" 2 'MANUAL-READINESS-UNREADABLE' ''
+J="$(python3 -c 'import json,sys; print(json.dumps({"enforce": True, "checked_on": sys.argv[1], "checks": {"demo_account": chr(0xd800), "live_backend": "fail"}}))' "$TODAY")"
+rd_case "rd-10 a lone surrogate never hides a recorded failure" "$J" "" 2 'MANUAL-LIVE-BACKEND-FAILED' ''
+J="$(python3 -c 'import json,sys; nl=chr(10); c={k: "pass" for k in sys.argv[1].split(",")}; print(json.dumps({"build": "ok"+nl+"critical"+nl, "checked_on": "2026-11-21"+nl+"critical|MANUAL-INJECTED|x|y", "checks": c}))' "demo_account,live_backend,review_notes,screenshots_match_build,account_deletion_device_test,privacy_labels_match_runtime,iap_reachable_by_reviewer")"
+rd_case "rd-11 newlines in build or checked_on never forge a finding" "$J" "" 0 '7 of 7 attested' 'MANUAL-INJECTED'
+rr_has '^  \[CRITICAL\]' && bad "rd-11b no critical line appears" || ok "rd-11b no critical line appears"
+NA_PRIV="${ALLPASS/\"privacy_labels_match_runtime\":\"pass\"/\"privacy_labels_match_runtime\":\"n/a\"}"
+rd_case "rd-12 enforce rejects n/a on privacy even with a reason" "{\"enforce\":true,\"checked_on\":\"$TODAY\",\"notes\":{\"privacy_labels_match_runtime\":\"we collect nothing\"},\"checks\":{$NA_PRIV}}" "" 2 'MANUAL-PRIVACY-LABELS-MATCH-RUNTIME-UNVERIFIED' 'MANUAL-DEMO-ACCOUNT-UNVERIFIED'
+rd_case "rd-12b n/a without a reason is not accepted" "{\"enforce\":true,\"checked_on\":\"$TODAY\",\"checks\":{\"demo_account\":\"n/a\"}}" "" 2 'MANUAL-DEMO-ACCOUNT-UNVERIFIED' ''
+NA_IAP="${ALLPASS/\"iap_reachable_by_reviewer\":\"pass\"/\"iap_reachable_by_reviewer\":\"n/a\"}"
+rd_case "rd-13 n/a with a reason in notes is accepted" "{\"enforce\":true,\"checked_on\":\"$TODAY\",\"notes\":{\"iap_reachable_by_reviewer\":\"no in-app purchases\"},\"checks\":{$NA_IAP}}" "" 0 '7 of 7 attested' 'UNVERIFIED'
+rd_case "rd-14 a far future checked_on is flagged" "{\"checked_on\":\"2099-01-01\",\"checks\":{$ALLPASS}}" "" 0 'date in the future' ''
+rd_case "rd-14b tomorrow counts as the future" "{\"checked_on\":\"$TOMORROW\",\"checks\":{$ALLPASS}}" "" 0 'date in the future' ''
+BS="$(printf '\134')"
+rd_case "rd-17 an escaped enforce key still enforces" "{\"en${BS}u0066orce\":true,\"checked_on\":\"$TODAY\",\"checks\":{}}" "" 2 'MANUAL-DEMO-ACCOUNT-UNVERIFIED' ''
+rd_case "rd-18 enforce inside notes does not enforce" "{\"checked_on\":\"$TODAY\",\"checks\":{},\"notes\":{\"enforce\":true}}" "" 0 '0 of 7 attested' 'UNVERIFIED'
+rd_case "rd-19 malformed notes never hide a recorded failure" "{\"checked_on\":\"$TODAY\",\"checks\":{\"demo_account\":\"fail\"},\"notes\":[1]}" "" 2 'MANUAL-DEMO-ACCOUNT-FAILED' ''
+rr_has 'MANUAL-READINESS-NOTES-INVALID' && ok "rd-19b the malformed notes are named" || bad "rd-19b the malformed notes are named"
+rd_case "rd-21 a checks list instead of an object blocks" '{"checks":[],"notes":{"enforce":true}}' "" 2 'MANUAL-READINESS-UNREADABLE' ''
+rd_case "rd-22 bad checks with an escaped top-level enforce blocks" "{\"en${BS}u0066orce\":true,\"checks\":[]}" "" 2 'MANUAL-READINESS-UNREADABLE' ''
+rd_case "rd-27 a repeated key never hides a recorded fail" "{\"checked_on\":\"$TODAY\",\"checks\":{\"demo_account\":\"fail\",\"demo_account\":\"pass\"}}" "" 2 'MANUAL-DEMO-ACCOUNT-FAILED' ''
+rr_has 'MANUAL-READINESS-DUPLICATE-KEY' && ok "rd-27b the repeated key is named" || bad "rd-27b the repeated key is named"
+rd_case "rd-28 a repeated checks object keeps the first object's fail" "{\"checked_on\":\"$TODAY\",\"checks\":{\"demo_account\":\"fail\"},\"checks\":{\"demo_account\":\"pass\"}}" "" 2 'MANUAL-DEMO-ACCOUNT-FAILED' ''
+rd_case "rd-29 repeats at both levels keep a recorded fail" "{\"checked_on\":\"$TODAY\",\"checks\":{\"demo_account\":\"fail\",\"demo_account\":\"pass\"},\"checks\":{\"demo_account\":\"pass\"}}" "" 2 'MANUAL-DEMO-ACCOUNT-FAILED' ''
+rd_case "rd-30 a malformed repeated checks entry keeps the valid fail" "{\"checked_on\":\"$TODAY\",\"checks\":{\"demo_account\":\"fail\"},\"checks\":[]}" "" 2 'MANUAL-DEMO-ACCOUNT-FAILED' ''
+rr_has 'MANUAL-READINESS-UNREADABLE' && ok "rd-30b the malformed entry is named" || bad "rd-30b the malformed entry is named"
+rd_case "rd-31 a trailing comma never hides a recorded fail" '{"checks":{"demo_account":"fail"},}' "" 2 'MANUAL-READINESS-UNREADABLE' ''
+rd_case "rd-32 a fail wrapped in a list blocks" "{\"checked_on\":\"$TODAY\",\"checks\":{\"demo_account\":[\"fail\"],\"demo_account\":\"pass\"}}" "" 2 'MANUAL-DEMO-ACCOUNT-INVALID' ''
+rd_case "rd-33 a checks list repeated with an object blocks" "{\"checked_on\":\"$TODAY\",\"checks\":[{\"demo_account\":\"fail\"}],\"checks\":{\"demo_account\":\"pass\"}}" "" 2 'MANUAL-READINESS-UNREADABLE' ''
+python3 -c 'import sys; open(sys.argv[1], "wb").write(("{\"checked_on\":\"%s\",\"checks\":{\"demo_account\":\"fail\"}}" % sys.argv[2]).encode("utf-16"))' "$D/.app-review-readiness.json" "$TODAY"
+rr_run "$D"
+rr_has 'MANUAL-DEMO-ACCOUNT-FAILED' && [ "$RC" -eq 2 ] && ok "rd-34 a UTF-16 file is read and its fail blocks" || bad "rd-34 a UTF-16 file is read and its fail blocks (rc=$RC)"
+python3 -c 'import sys; n = 600; open(sys.argv[1], "w").write("{\"checks\":{\"demo_account\":\"fail\"},\"build\":" + "{\"x\":" * n + "0" + ",\"x\":0}" * n + "}")' "$D/.app-review-readiness.json"
+rr_run "$D"
+[ "$RC" -eq 2 ] && rr_has '\[CRITICAL\][[:space:]]*MANUAL-' && ok "rd-35 a deeply nested build value never hides a recorded fail" || bad "rd-35 a deeply nested build value never hides a recorded fail (rc=$RC)"
+rm -f "$D/.app-review-readiness.json"; mkdir "$D/.app-review-readiness.json"; rr_run "$D"; rmdir "$D/.app-review-readiness.json"
+rr_has 'MANUAL-READINESS-UNREADABLE' && [ "$RC" -eq 2 ] && ok "rd-36 a folder named like the readiness file blocks, never reads as absent" || bad "rd-36 a folder named like the readiness file blocks, never reads as absent (rc=$RC)"
+ln -s missing-target.json "$D/.app-review-readiness.json"; rr_run "$D"; rm -f "$D/.app-review-readiness.json"
+rr_has 'MANUAL-READINESS-UNREADABLE' && [ "$RC" -eq 2 ] && ok "rd-37 a broken symlink named like the readiness file blocks" || bad "rd-37 a broken symlink named like the readiness file blocks (rc=$RC)"
+python3 -c 'import sys; open(sys.argv[1], "wb").write(b"{\"checks\":{\"demo_account\":\"fail\"}," + b"\"x\":0," * 200000 + b"\"x\":0}")' "$D/.app-review-readiness.json"
+TO="$(command -v timeout || command -v gtimeout || true)"; T0=$SECONDS
+if [ -n "$TO" ]; then OUT="$("$TO" 45 bash "$GUARD" "$D" 2>&1)"; RC=$?; else rr_run "$D"; fi
+rr_has 'MANUAL-DEMO-ACCOUNT-FAILED' && [ "$RC" -eq 2 ] && [ $((SECONDS - T0)) -lt 45 ] && ok "rd-38 200000 repeated keys still block quickly" || bad "rd-38 200000 repeated keys still block quickly (rc=$RC, $((SECONDS - T0))s)"
+rm -f "$D/.app-review-readiness.json"
+printf '{"checked_on":"%s","checks":{"demo_account":"fail"}}' "$TODAY" > "$D/.app-review-readiness.json"
+PYSHIM="$(mktemp -d)"; REAL_PY="$(command -v python3)"
+printf '#!/bin/sh\nif [ "$1" = "-" ] && [ "${2:-}" = "%s" ]; then mv "$2" "$2.saved"; mkfifo "$2"; fi\nexec "%s" "$@"\n' "$D/.app-review-readiness.json" "$REAL_PY" > "$PYSHIM/python3"; chmod +x "$PYSHIM/python3"
+TO="$(command -v timeout || command -v gtimeout || true)"
+if [ -n "$TO" ]; then OUT="$(PATH="$PYSHIM:$PATH" "$TO" 30 bash "$GUARD" "$D" 2>&1)"; RC=$?; else OUT="$(PATH="$PYSHIM:$PATH" bash "$GUARD" "$D" 2>&1)"; RC=$?; fi
+rr_has 'MANUAL-READINESS-UNREADABLE' && [ "$RC" -eq 2 ] && ok "rd-39 a readiness file swapped for a FIFO before the read blocks, never hangs" || bad "rd-39 a readiness file swapped for a FIFO before the read blocks, never hangs (rc=$RC)"
+rm -rf "$PYSHIM" "$D/.app-review-readiness.json" "$D/.app-review-readiness.json.saved"
+python3 -c 'import sys; open(sys.argv[1], "wb").write(b"{\"checks\":{\"demo_account\":\"fail\"},\"pad\":\"" + b"x" * (9 * 1024 * 1024) + b"\"}")' "$D/.app-review-readiness.json"
+rr_run "$D"
+rr_has 'larger than 8 MiB' && [ "$RC" -eq 2 ] && ok "rd-40 a readiness file over 8 MiB blocks without being parsed" || bad "rd-40 a readiness file over 8 MiB blocks without being parsed (rc=$RC)"
+printf '{"checked_on":"%s","checks":{"demo_account":"fail"}}' "$TODAY" > "$D/.app-review-readiness.json"
+STALL="$(mktemp -d)"
+printf 'import os, time\n_o = os.open\ndef _slow(p, *a, **k):\n    if str(p).endswith(".app-review-readiness.json"):\n        time.sleep(60)\n    return _o(p, *a, **k)\nos.open = _slow\n' > "$STALL/sitecustomize.py"
+TO="$(command -v timeout || command -v gtimeout || true)"; T0=$SECONDS
+if [ -n "$TO" ]; then OUT="$(PYTHONPATH="$STALL" "$TO" 40 bash "$GUARD" "$D" 2>&1)"; RC=$?; else OUT="$(PYTHONPATH="$STALL" bash "$GUARD" "$D" 2>&1)"; RC=$?; fi
+rr_has 'could not be read within 10 seconds' && [ "$RC" -eq 2 ] && [ $((SECONDS - T0)) -lt 40 ] && ok "rd-41 a stalled read ends in a block within its deadline" || bad "rd-41 a stalled read ends in a block within its deadline (rc=$RC, $((SECONDS - T0))s)"
+rm -rf "$STALL" "$D/.app-review-readiness.json"
+printf '{"checked_on":"%s","checks":{"demo_account":"fail"}}' "$TODAY" > "$D/.app-review-readiness.json"
+STALL="$(mktemp -d)"
+printf 'import os, signal, time\ndel signal.SIGALRM\n_o = os.open\ndef _slow(p, *a, **k):\n    if str(p).endswith(".app-review-readiness.json"):\n        time.sleep(60)\n    return _o(p, *a, **k)\nos.open = _slow\n' > "$STALL/sitecustomize.py"
+TO="$(command -v timeout || command -v gtimeout || true)"; T0=$SECONDS
+if [ -n "$TO" ]; then OUT="$(PYTHONPATH="$STALL" "$TO" 40 bash "$GUARD" "$D" 2>&1)"; RC=$?; else OUT="$(PYTHONPATH="$STALL" bash "$GUARD" "$D" 2>&1)"; RC=$?; fi
+rr_has 'could not be read within 10 seconds' && [ "$RC" -eq 2 ] && [ $((SECONDS - T0)) -lt 40 ] && ok "rd-42 without SIGALRM a stalled read still blocks within its deadline" || bad "rd-42 without SIGALRM a stalled read still blocks within its deadline (rc=$RC, $((SECONDS - T0))s)"
+rm -rf "$STALL" "$D/.app-review-readiness.json"
+printf '{"checked_on":"%s","checks":{%s}}' "$TODAY" "$ALLPASS" > "$D/.app-review-readiness.json"
+SLOWEXIT="$(mktemp -d)"
+printf 'import atexit, signal, time\ndel signal.SIGALRM\natexit.register(time.sleep, 12)\n' > "$SLOWEXIT/sitecustomize.py"
+OUT="$(PYTHONPATH="$SLOWEXIT" bash "$GUARD" "$D" 2>&1)"; RC=$?
+rr_has '7 of 7 attested' && ! rr_has 'within 10 seconds' && [ "$RC" -eq 0 ] && ok "rd-43 a slow exit after a clean read never reports a false timeout" || bad "rd-43 a slow exit after a clean read never reports a false timeout (rc=$RC)"
+rm -rf "$SLOWEXIT" "$D/.app-review-readiness.json"
+printf '{"checked_on":"%s","checks":{"demo_account":"fail"}}' "$TODAY" > "$D/.app-review-readiness.json"
+WD="$(mktemp -d)"
+printf 'import os, signal, time\ndel signal.SIGALRM\n_o = os.open\ndef _slow(p, *a, **k):\n    if str(p).endswith(".app-review-readiness.json"):\n        time.sleep(12)\n    return _o(p, *a, **k)\nos.open = _slow\n' > "$WD/sitecustomize.py"
+python3 -c 'import sys
+src = open(sys.argv[1], encoding="utf-8").read()
+start = src.index("<<'"'"'PYR'"'"'\n") + len("<<'"'"'PYR'"'"'\n")
+open(sys.argv[2], "w", encoding="utf-8").write(src[start:src.index("\nPYR\n", start)])' "$GUARD" "$WD/reader.py"
+python3 -c 'import os, subprocess, sys, time
+env = dict(os.environ, PYTHONPATH=sys.argv[2])
+child = subprocess.Popen([sys.executable, sys.argv[1], sys.argv[3], "0", ""], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, env=env)
+child.stdout.close()
+try:
+    child.wait(timeout=25)
+except subprocess.TimeoutExpired:
+    child.kill()
+    sys.exit(1)' "$WD/reader.py" "$WD" "$D/.app-review-readiness.json"
+[ $? -eq 0 ] && ok "rd-44 a watchdog whose output pipe is closed still ends the reader" || bad "rd-44 a watchdog whose output pipe is closed still ends the reader"
+rm -rf "$WD" "$D/.app-review-readiness.json"
+rm -rf "$D"
+
+# Readiness is read per app in a monorepo, with the workspace file as the fallback.
+M="$(mk_expo_mono)"; rm -f "$M/apps/app/ios/App/A.swift"
+printf '{"checked_on":"%s","checks":{%s}}' "$TODAY" "$ALLPASS" > "$M/apps/app/.app-review-readiness.json"
+printf '{"checked_on":"%s","checks":{"demo_account":"fail"}}' "$TODAY" > "$M/apps/kiosk/.app-review-readiness.json"
+OUT="$(bash "$GUARD" "$M" 2>&1)"; RC=$?
+rr_has 'MANUAL-DEMO-ACCOUNT-FAILED.*apps/kiosk' && rr_has 'Manual checks for apps/app. 7 of 7' && [ "$RC" -eq 2 ] && ok "rd-15 a failure recorded for one app in a monorepo blocks and names it" || bad "rd-15 a failure recorded for one app in a monorepo blocks and names it (rc=$RC)"
+rm -f "$M/apps/kiosk/.app-review-readiness.json"; printf '{"checked_on":"%s","checks":{%s}}' "$TODAY" "$ALLPASS" > "$M/.app-review-readiness.json"
+OUT="$(bash "$GUARD" "$M" 2>&1)"; RC=$?
+rr_has 'Manual checks for apps/kiosk/ios. 7 of 7 attested.*from the workspace file' && [ "$RC" -eq 0 ] && ok "rd-16 an app with no file falls back to the workspace file and says so" || bad "rd-16 an app with no file falls back to the workspace file and says so (rc=$RC)"
+rm -rf "$M"
+# Only the scanned folder's file is read. Any other one is named, so it is never silently used.
+M="$(mktemp -d)"; mkdir -p "$M/apps/mobile/App"
+printf '<plist><dict><key>ITSAppUsesNonExemptEncryption</key><false/></dict></plist>' > "$M/apps/mobile/App/Info.plist"
+printf '%s' "$PLIST_EMPTY" > "$M/apps/mobile/App/PrivacyInfo.xcprivacy"
+printf 'let a = 1\n' > "$M/apps/mobile/App/A.swift"
+printf '{"checked_on":"%s","checks":{"demo_account":"fail"}}' "$TODAY" > "$M/apps/mobile/.app-review-readiness.json"
+OUT="$(bash "$GUARD" "$M" 2>&1)"; RC=$?
+rr_has 'not read, for example apps/mobile/.app-review-readiness.json' && ! rr_has 'MANUAL-DEMO' && [ "$RC" -eq 0 ] && ok "rd-20 a readiness file in a nested folder is named as not read, never silently used" || bad "rd-20 a readiness file in a nested folder is named as not read, never silently used (rc=$RC)"
+rm -rf "$M"
+# A readiness file in a dependency or the docs never counts.
+M="$(mk_rr_ios "$PP_KEYS" 'let ready = true')"; mkdir -p "$M/node_modules/pkg"
+printf '{"checks":{"demo_account":"fail"}}' > "$M/node_modules/pkg/.app-review-readiness.json"
+OUT="$(bash "$GUARD" "$M" 2>&1)"; RC=$?
+[ "$RC" -eq 0 ] && rr_has '^CLEAR\.' && ! rr_has 'MANUAL-DEMO' && ok "rd-23 a readiness file inside node_modules is never read" || bad "rd-23 a readiness file inside node_modules is never read (rc=$RC)"
+rm -rf "$M/node_modules"; mkdir -p "$M/docs"; printf '{"checked_on":"%s","checks":{%s}}' "$TODAY" "$ALLPASS" > "$M/docs/.app-review-readiness.json"
+OUT="$(APP_STORE_GUARD_REQUIRE_READINESS=1 bash "$GUARD" "$M" 2>&1)"; RC=$?
+[ "$RC" -eq 2 ] && rr_has 'MANUAL-READINESS-MISSING' && ok "rd-24 a passing file in docs never stands in for the app" || bad "rd-24 a passing file in docs never stands in for the app (rc=$RC)"
+rm -rf "$M"
+M="$(mktemp -d)"; R="$M/apps/team/products/mobile/release"; mkdir -p "$R/App"
+printf '<plist><dict><key>ITSAppUsesNonExemptEncryption</key><false/></dict></plist>' > "$R/App/Info.plist"
+printf '%s' "$PLIST_EMPTY" > "$R/App/PrivacyInfo.xcprivacy"; printf 'let a = 1\n' > "$R/App/A.swift"
+printf '{"checked_on":"%s","checks":{"demo_account":"fail"}}' "$TODAY" > "$R/.app-review-readiness.json"
+OUT="$(bash "$GUARD" "$M" 2>&1)"; RC=$?
+[ "$RC" -eq 0 ] && rr_has 'not read, for example apps/team/products/mobile/release' && ok "rd-25 a readiness file six folders deep is named as not read" || bad "rd-25 a readiness file six folders deep is named as not read (rc=$RC)"
+rm -rf "$M"
+M="$(mk_rr_ios "$PP_KEYS" 'let ready = true')"; mkdir -p "$M/apps/mobile/App"; cp "$M/App/Info.plist" "$M/apps/mobile/App/"
+printf '{"checked_on":"%s","checks":{%s}}' "$TODAY" "$ALLPASS" > "$M/.app-review-readiness.json"
+printf '{"checked_on":"%s","checks":{"demo_account":"fail"}}' "$TODAY" > "$M/apps/mobile/.app-review-readiness.json"
+OUT="$(bash "$GUARD" "$M" 2>&1)"; RC=$?
+rr_has 'Manual checks for this project. 7 of 7' && rr_has 'not read, for example apps/mobile/.app-review-readiness.json' && ok "rd-26 the scanned folder's file is used and a nested one is named" || bad "rd-26 the scanned folder's file is used and a nested one is named (rc=$RC)"
+rm -rf "$M"
+
+# A long multi-line hook command cannot hide its submit from the detector.
+D="$(mk_ios_bad)"
+PAYLOAD="$(python3 -c 'import json; print(json.dumps({"tool_name": "Bash", "tool_input": {"command": "fastlane deliver\n" + "echo harmless\n" * 20000}}))')"
+OUT="$(printf '%s' "$PAYLOAD" | CLAUDE_PROJECT_DIR="$D" bash "$GUARD" 2>&1)"; RC=$?
+[ "$RC" -eq 2 ] && rr_has 'App Store Compliance Guard' && ok "hk-1 a submit followed by 20000 lines is still scanned and blocked" || bad "hk-1 a submit followed by 20000 lines is still scanned and blocked (rc=$RC bytes=${#OUT})"
+rm -rf "$D"
+
+# A Podfile below iOS 13 is found even when other Podfiles in the tree are fine.
+D="$(mk_ios_clean)"; mkdir -p "$D/a" "$D/b" "$D/c" "$D/d"
+printf "platform :ios, '11.0'\n" > "$D/a/Podfile"
+for x in b c d; do printf "platform :ios, '15.0'\n" > "$D/$x/Podfile"; done
+OUT="$(bash "$GUARD" "$D" 2>&1)"; RC=$?
+rr_has 'APPLE-MIN-DEPLOYMENT-TARGET-IOS13' && ok "pf-1 one old Podfile among newer ones is still reported" || bad "pf-1 one old Podfile among newer ones is still reported (rc=$RC)"
+rm -rf "$D"
+# JS and TS test files (Jest, Vitest, Detox) sit next to the code they test, as *.test.ts or
+# *.spec.tsx, and never ship. A localhost or example.com inside one is not a release-build string.
+D="$(mktemp -d)"; mkdir -p "$D/App" "$D/src" "$D/integration"
+printf '<plist/>' > "$D/App/Info.plist"
+printf 'export const api = "https://api.app.com"\n' > "$D/src/api.ts"
+printf 'const base = "http://localhost:3000"\nconst email = "user@example.com"\n' > "$D/integration/api.test.ts"
+printf 'it("logs in", () => fetch("http://localhost:8081/login"))\n' > "$D/src/login.spec.tsx"
+OUT="$(bash "$GUARD" "$D" 2>&1)"
+rr_has 'Coverage. complete ios=1' && ! rr_has 'APPLE-2.1-STAGING-BACKEND' && ! rr_has 'BOTH-PLACEHOLDER' && ok "js-test-1 localhost and example.com in *.test.ts and *.spec.tsx files are not release-build strings" || bad "js-test-1 localhost and example.com in *.test.ts and *.spec.tsx files are not release-build strings"
+rm -rf "$D"
+
+# The exclusion goes by test-file name only: the same localhost in a file that ships is still flagged.
+D="$(mktemp -d)"; mkdir -p "$D/App" "$D/src"
+printf '<plist/>' > "$D/App/Info.plist"
+printf 'export const api = "http://localhost:3000"\n' > "$D/src/config.ts"
+OUT="$(bash "$GUARD" "$D" 2>&1)"
+rr_has 'APPLE-2.1-STAGING-BACKEND' && ok "js-test-2 localhost in a shipping .ts file is still flagged" || bad "js-test-2 localhost in a shipping .ts file is still flagged"
+rm -rf "$D"
+# A test file that app code imports is bundled and ships, so it is scanned.
+D="$(mktemp -d)"; mkdir -p "$D/App" "$D/src"
+printf '<plist/>' > "$D/App/Info.plist"
+printf 'import {api} from "./api.test";\nexport const load = () => fetch(api);\n' > "$D/src/App.tsx"
+printf 'export const api = "http://localhost:3000"\n' > "$D/src/api.test.ts"
+OUT="$(bash "$GUARD" "$D" 2>&1)"
+rr_has 'APPLE-2.1-STAGING-BACKEND' && ok "js-test-3 localhost in a test file that app code imports is still flagged" || bad "js-test-3 localhost in a test file that app code imports is still flagged"
+rm -rf "$D"
+D="$(mktemp -d)"; mkdir -p "$D/App" "$D/src"
+printf '<plist/>' > "$D/App/Info.plist"
+printf 'import "./boot.test";\nexport default function App() { return null }\n' > "$D/src/App.tsx"
+printf 'fetch("http://localhost:3000/bootstrap")\n' > "$D/src/boot.test.ts"
+OUT="$(bash "$GUARD" "$D" 2>&1)"
+rr_has 'APPLE-2.1-STAGING-BACKEND' && ok "js-test-4 a side-effect import of a test file is still scanned" || bad "js-test-4 a side-effect import of a test file is still scanned"
+rm -rf "$D"
+D="$(mktemp -d)"; mkdir -p "$D/App" "$D/src"
+printf '<plist/>' > "$D/App/Info.plist"
+printf 'import {api} from\n"./api.test";\nexport const load = () => fetch(api);\n' > "$D/src/App.tsx"
+printf 'export const api = "http://localhost:3000"\n' > "$D/src/api.test.ts"
+OUT="$(bash "$GUARD" "$D" 2>&1)"
+rr_has 'APPLE-2.1-STAGING-BACKEND' && ok "js-test-5 an import split over two lines is still scanned" || bad "js-test-5 an import split over two lines is still scanned"
+rm -rf "$D"
+D="$(mktemp -d)"; mkdir -p "$D/App" "$D/src"
+printf '<plist/>' > "$D/App/Info.plist"
+printf 'import remove from\n"./account.test";\nexport const signUp = () => fetch("https://api.app.com/account", {method:"POST"});\nexport const close = () => remove();\n' > "$D/src/App.tsx"
+printf 'export default function deleteAccount() {\n  return fetch("https://api.app.com/account", {method:"DELETE"});\n}\n' > "$D/src/account.test.ts"
+OUT="$(bash "$GUARD" "$D" 2>&1)"
+rr_has 'Coverage. complete ios=1' && ! rr_has 'APPLE-5.1.1-NO-ACCOUNT-DELETION' && ok "js-test-6 a deletion implemented in an imported test file still counts" || bad "js-test-6 a deletion implemented in an imported test file still counts"
+rm -rf "$D"
+D="$(mktemp -d)"; mkdir -p "$D/App" "$D/public"
+printf '<plist/>' > "$D/App/Info.plist"
+printf '{"appId":"com.acme.app","appName":"Production","webDir":"public"}' > "$D/capacitor.config.json"
+printf '<script src="./boot.test.js"></script>\n' > "$D/public/index.html"
+printf 'fetch("http://localhost:3000/bootstrap")\n' > "$D/public/boot.test.js"
+OUT="$(bash "$GUARD" "$D" 2>&1)"
+rr_has 'APPLE-2.1-STAGING-BACKEND' && ok "js-test-7 a test file loaded by a web page script tag is still scanned" || bad "js-test-7 a test file loaded by a web page script tag is still scanned"
+rm -rf "$D"
+D="$(mktemp -d)"; mkdir -p "$D/App" "$D/public"
+printf '<plist/>' > "$D/App/Info.plist"
+printf '{"appId":"com.acme.app","appName":"Production","webDir":"public"}' > "$D/capacitor.config.json"
+printf '<script src="./boot.test.js?v=1"></script>\n' > "$D/public/index.html"
+printf 'fetch("http://localhost:3000/bootstrap")\n' > "$D/public/boot.test.js"
+OUT="$(bash "$GUARD" "$D" 2>&1)"
+rr_has 'APPLE-2.1-STAGING-BACKEND' && ok "js-test-8 a cache-busted script URL to a test file is still scanned" || bad "js-test-8 a cache-busted script URL to a test file is still scanned"
+rm -rf "$D"
+D="$(mktemp -d)"; mkdir -p "$D/App" "$D/src"
+printf '<plist/>' > "$D/App/Info.plist"
+printf 'import Account from "./Account.vue";\nexport default Account;\n' > "$D/src/main.ts"
+printf 'export const signUp = () => fetch("https://api.app.com/account", {method:"POST"});\n' > "$D/src/signup.ts"
+printf 'export function deleteAccount() {\n  return fetch("https://api.app.com/account", {method:"DELETE"});\n}\n' > "$D/src/account.test.ts"
+printf '<script setup lang="ts">\nimport { signUp } from "./signup";\nimport { deleteAccount } from "./account.test";\n</script>\n' > "$D/src/Account.vue"
+OUT="$(bash "$GUARD" "$D" 2>&1)"
+rr_has 'Coverage. complete ios=1' && ! rr_has 'APPLE-5.1.1-NO-ACCOUNT-DELETION' && ok "js-test-9 a test file imported by a Vue component is still scanned" || bad "js-test-9 a test file imported by a Vue component is still scanned"
+rm -rf "$D"
+D="$(mktemp -d)"; mkdir -p "$D/App" "$D/public"
+printf '<plist/>' > "$D/App/Info.plist"
+printf '{"appId":"com.acme.app","appName":"Production","webDir":"public"}' > "$D/capacitor.config.json"
+printf '<script src=./boot.test.js></script>\n' > "$D/public/index.html"
+printf 'fetch("http://localhost:3000/bootstrap")\n' > "$D/public/boot.test.js"
+OUT="$(bash "$GUARD" "$D" 2>&1)"
+rr_has 'APPLE-2.1-STAGING-BACKEND' && ok "js-test-10 an unquoted script src to a test file is still scanned" || bad "js-test-10 an unquoted script src to a test file is still scanned"
+rm -rf "$D"
+D="$(mktemp -d)"; mkdir -p "$D/App" "$D/public"
+printf '<plist/>' > "$D/App/Info.plist"
+printf '{"appId":"com.acme.app","appName":"Production","webDir":"public"}' > "$D/capacitor.config.json"
+printf 'import "./boot.test.js";\n' > "$D/public/main.mjs"
+printf 'fetch("http://localhost:3000/bootstrap")\n' > "$D/public/boot.test.js"
+OUT="$(bash "$GUARD" "$D" 2>&1)"
+rr_has 'APPLE-2.1-STAGING-BACKEND' && ok "js-test-11 a test file imported by a .mjs module is still scanned" || bad "js-test-11 a test file imported by a .mjs module is still scanned"
+rm -rf "$D"
+D="$(mktemp -d)"; mkdir -p "$D/App" "$D/src" "$D/tests"
+printf '<plist/>' > "$D/App/Info.plist"
+printf 'export const a = "https://api.app.com"\n' > "$D/src/api.ts"
+printf 'const b = "http://localhost:3000"\n' > "$D/src/api.test.ts"
+printf '<script src="../src/api.test.ts"></script>\n' > "$D/tests/index.html"
+OUT="$(bash "$GUARD" "$D" 2>&1)"
+rr_has 'Coverage. complete ios=1' && ! rr_has 'APPLE-2.1-STAGING-BACKEND' && ok "js-test-12 a test runner page under tests/ does not keep test files" || bad "js-test-12 a test runner page under tests/ does not keep test files"
+rm -rf "$D"
+D="$(mktemp -d)"; mkdir -p "$D/App" "$D/src/handlers"
+printf '<plist/>' > "$D/App/Info.plist"
+printf 'export const handlers = import.meta.glob("./handlers/*.ts", { eager: true });\n' > "$D/src/main.ts"
+printf 'fetch("http://localhost:3000/bootstrap")\n' > "$D/src/handlers/bootstrap.test.ts"
+OUT="$(bash "$GUARD" "$D" 2>&1)"
+rr_has 'APPLE-2.1-STAGING-BACKEND' && ok "js-test-13 a glob import keeps test files in the scan" || bad "js-test-13 a glob import keeps test files in the scan"
+rm -rf "$D"
+P="$(mktemp -d)"; D="$P/DrivingTests"; mkdir -p "$D/App" "$D/src"
+printf '<plist/>' > "$D/App/Info.plist"
+printf 'import Account from "./Account.vue";\nexport default Account;\n' > "$D/src/main.ts"
+printf '<script setup>\nimport { base } from "./api.test";\n</script>\n' > "$D/src/Account.vue"
+printf 'export const base = "http://localhost:3000"\n' > "$D/src/api.test.ts"
+OUT="$(bash "$GUARD" "$D" 2>&1)"
+rr_has 'APPLE-2.1-STAGING-BACKEND' && ok "js-test-14 a project folder named like a test folder is still searched" || bad "js-test-14 a project folder named like a test folder is still searched"
+rm -rf "$P"
+D="$(mktemp -d)"; mkdir -p "$D/ios/App" "$D/app"
+printf '<plist/>' > "$D/ios/App/Info.plist"
+printf '{"name":"t","dependencies":{"expo":"52.0.0","expo-router":"4.0.0","react-native":"0.76.0"}}\n' > "$D/package.json"
+printf 'export default function Home() { return null }\n' > "$D/app/index.tsx"
+printf 'export default function T() { fetch("http://localhost:3000/x"); return null }\n' > "$D/app/debug.test.tsx"
+OUT="$(bash "$GUARD" "$D" 2>&1)"
+rr_has 'APPLE-2.1-STAGING-BACKEND' && ok "js-test-15 an Expo Router test file under app/ is still scanned" || bad "js-test-15 an Expo Router test file under app/ is still scanned"
+rm -rf "$D"
+D="$(mktemp -d)"; mkdir -p "$D/ios/App" "$D/app" "$D/src"
+printf '<plist/>' > "$D/ios/App/Info.plist"
+printf '{"name":"t","dependencies":{"expo":"52.0.0","expo-router":"4.0.0","react-native":"0.76.0"}}\n' > "$D/package.json"
+printf 'export default function Home() { return null }\n' > "$D/app/index.tsx"
+printf 'const b = "http://localhost:3000"\n' > "$D/src/api.test.ts"
+OUT="$(bash "$GUARD" "$D" 2>&1)"
+rr_has 'Coverage. complete ios=1' && ! rr_has 'APPLE-2.1-STAGING-BACKEND' && ok "js-test-16 an Expo Router test file outside app/ is still skipped" || bad "js-test-16 an Expo Router test file outside app/ is still skipped"
+rm -rf "$D"
+D="$(mktemp -d)"; mkdir -p "$D/App" "$D/src"
+printf '<plist/>' > "$D/App/Info.plist"
+printf 'export const signUp = () => fetch("https://api.app.com/account", {method:"POST"});\n' > "$D/src/auth.ts"
+printf '<script setup>\nconst deleteAccount = () => fetch("https://api.app.com/account", {method:"DELETE"})\n</script>\n' > "$D/src/DeleteAccount.vue"
+printf 'import { deleteAccount } from "./account";\ntest("deleteAccount", () => deleteAccount());\n' > "$D/src/auth.test.ts"
+OUT="$(bash "$GUARD" "$D" 2>&1)"
+rr_has 'Coverage. complete ios=1' && ! rr_has 'APPLE-5.1.1-NO-ACCOUNT-DELETION' && ok "js-test-17 a test file still counts as deletion evidence" || bad "js-test-17 a test file still counts as deletion evidence"
+rm -rf "$D"
+D="$(mktemp -d)"; mkdir -p "$D/App" "$D/src/gen"
+printf '<plist/>' > "$D/App/Info.plist"
+i=1; while [ $i -le 5200 ]; do echo "export const v$i = $i" > "$D/src/gen/f$i.ts"; i=$((i+1)); done
+echo 'const s = "lorem ipsum dolor"' > "$D/src/aaa.ts"; echo 'const x = 1' > "$D/src/z.test.ts"
+OUT="$(bash "$GUARD" "$D" 2>&1)"
+rr_has 'BOTH-PLACEHOLDER' && ok "js-test-18 a placeholder is still found when more than 5000 files are scanned" || bad "js-test-18 a placeholder is still found when more than 5000 files are scanned"
+rm -rf "$D"
+# Issue #2397. The staging-host finding names the string that fired, and text that never ships is not read.
+mk_ship() {  # an iOS app whose Net.swift holds $1
+  local d; d="$(mktemp -d)"; mkdir -p "$d/App"
+  printf '<plist/>' > "$d/App/Info.plist"
+  printf '%s\n' "$1" > "$d/App/Net.swift"
+  echo "$d"
+}
+mk_rn_ship() {  # a React Native app whose src/$1 holds $2
+  local d; d="$(mktemp -d)"; mkdir -p "$d/ios/App" "$d/src"
+  printf '<plist/>' > "$d/ios/App/Info.plist"
+  printf '{"name":"t","dependencies":{"react-native":"0.80.0"}}\n' > "$d/package.json"
+  printf '%s\n' "$2" > "$d/src/$1"
+  echo "$d"
+}
+sh_at() { printf '%s\n' "$OUT" | grep -A1 'APPLE-2.1-STAGING-BACKEND' | grep -q "^      file\. $1\$"; }
+D="$(mk_ship 'import Foundation
+
+let base = "http://localhost:3000"')"
+printf '// Run the mock server on localhost before testing\nlet x = 1\n' > "$D/App/Notes.swift"
+OUT="$(bash "$GUARD" "$D" 2>&1)"
+sh_at 'App/Net.swift:3' && ok "ptr-1 the finding names the string, not a comment in another file" || bad "ptr-1 the finding names the string, not a comment in another file"
+rm -rf "$D"
+D="$(mk_rn_ship api.ts 'export const api = "http://localhost:3000";')"
+printf "const db = 'postgres://localhost:1/x'\n" > "$D/src/a.test.ts"
+OUT="$(bash "$GUARD" "$D" 2>&1)"
+sh_at 'src/api.ts:1' && ok "ptr-2 the finding names the shipping file, not a test file the check leaves out" || bad "ptr-2 the finding names the shipping file, not a test file the check leaves out"
+rm -rf "$D"
+D="$(mk_ship '#if DEBUG
+let local = "http://localhost:1"
+#endif
+let api = "https://staging.acme.io"')"
+OUT="$(bash "$GUARD" "$D" 2>&1)"
+sh_at 'App/Net.swift:4' && ok "ptr-3 the line number counts the lines of a removed DEBUG block" || bad "ptr-3 the line number counts the lines of a removed DEBUG block"
+rm -rf "$D"
+
+D="$(mk_ship 'let api = "https://api.acme.io"')"; mkdir -p "$D/.github/workflows"
+printf 'jobs:\n  e2e:\n    steps:\n      - run: curl "http://localhost:8081/status"\n' > "$D/.github/workflows/e2e.yml"
+OUT="$(bash "$GUARD" "$D" 2>&1)"
+! rr_has 'APPLE-2.1-STAGING-BACKEND' && ok "ns-1 a localhost in a GitHub workflow stays silent" || bad "ns-1 a localhost in a GitHub workflow stays silent"
+rm -rf "$D"
+D="$(mk_ship 'let api = "https://api.acme.io"')"; mkdir -p "$D/e2e" "$D/.maestro" "$D/__e2e__/flows"
+printf 'appId: io.acme\n---\n- inputText: "http://localhost:3000"\n' > "$D/e2e/login.yaml"
+printf 'appId: io.acme\n---\n- openLink: "http://127.0.0.1:8080"\n' > "$D/.maestro/open.yaml"
+printf -- '- inputText: "https://staging.acme.io"\n' > "$D/__e2e__/flows/login.yml"
+OUT="$(bash "$GUARD" "$D" 2>&1)"
+! rr_has 'APPLE-2.1-STAGING-BACKEND' && ok "ns-2 a localhost in e2e, .maestro and __e2e__ flows stays silent" || bad "ns-2 a localhost in e2e, .maestro and __e2e__ flows stays silent"
+rm -rf "$D"
+D="$(mk_ship 'let api = "https://api.acme.io"')"
+printf '{"name":"t","scripts":{"start":"react-native start --host \\"127.0.0.1\\""},"proxy":"http://localhost:3000"}\n' > "$D/package.json"
+printf 'workflows:\n  test:\n    scripts:\n      - script: curl "http://localhost:8080"\n' > "$D/bitrise.yml"
+printf 'e2e:\n  script: ["curl http://localhost:8080", "echo \\"http://localhost\\""]\n' > "$D/.gitlab-ci.yml"
+OUT="$(bash "$GUARD" "$D" 2>&1)"
+! rr_has 'APPLE-2.1-STAGING-BACKEND' && ok "ns-3 a localhost in package.json, bitrise.yml and .gitlab-ci.yml stays silent" || bad "ns-3 a localhost in package.json, bitrise.yml and .gitlab-ci.yml stays silent"
+rm -rf "$D"
+D="$(mk_ship 'let api = "https://api.acme.io"')"; mkdir -p "$D/src"
+printf '{"name":"t","config":{"apiUrl":"http://localhost:3000"}}\n' > "$D/package.json"
+printf "import {config} from '../package.json';\nfetch(config.apiUrl);\n" > "$D/src/App.tsx"
+OUT="$(bash "$GUARD" "$D" 2>&1)"
+rr_has 'APPLE-2.1-STAGING-BACKEND' && ok "ns-3b a localhost in a package.json the app imports is still reported" || bad "ns-3b a localhost in a package.json the app imports is still reported"
+rm -rf "$D"
+D="$(mk_ship 'let api = "https://api.acme.io"')"; mkdir -p "$D/src"
+printf '{"name":"t","config":{"apiUrl":"http://localhost:3000"}}\n' > "$D/package.json"
+printf "<script>\nconst {config} = require('../package');\n</script>\n" > "$D/src/App.vue"
+OUT="$(bash "$GUARD" "$D" 2>&1)"
+rr_has 'APPLE-2.1-STAGING-BACKEND' && ok "ns-3c an extensionless require from a Vue file still keeps package.json" || bad "ns-3c an extensionless require from a Vue file still keeps package.json"
+rm -rf "$D"
+D="$(mk_ship 'let api = "https://api.acme.io"')"; mkdir -p "$D/src"
+printf '{"name":"t","config":{"apiUrl":"http://localhost:3000"}}\n' > "$D/package.json"
+printf 'import {config} from "@root/package.json";\nfetch(config.apiUrl);\n' > "$D/src/App.tsx"
+OUT="$(bash "$GUARD" "$D" 2>&1)"
+rr_has 'APPLE-2.1-STAGING-BACKEND' && ok "ns-3d a package.json imported through a path alias still ships" || bad "ns-3d a package.json imported through a path alias still ships"
+rm -rf "$D"
+D="$(mk_ship 'let api = "https://api.acme.io"')"; mkdir -p "$D/src"
+printf '{"name":"t","config":{"apiUrl":"http://localhost:3000"}}\n' > "$D/package.json"
+printf 'const {config} = require(\n"../package.json"\n);\n' > "$D/src/App.js"
+OUT="$(bash "$GUARD" "$D" 2>&1)"
+rr_has 'APPLE-2.1-STAGING-BACKEND' && ok "ns-3e a require split across lines still keeps package.json" || bad "ns-3e a require split across lines still keeps package.json"
+rm -rf "$D"
+D="$(mk_ship 'let api = "https://api.acme.io"')"; mkdir -p "$D/src"
+printf '{"name":"t","config":{"apiUrl":"http://localhost:3000"}}\n' > "$D/package.json"
+printf 'import pkg from "@root/package";\n' > "$D/src/App.tsx"
+OUT="$(bash "$GUARD" "$D" 2>&1)"
+rr_has 'APPLE-2.1-STAGING-BACKEND' && ok "ns-3f an extensionless alias still keeps package.json" || bad "ns-3f an extensionless alias still keeps package.json"
+rm -rf "$D"
+D="$(mk_ship 'let api = "https://api.acme.io"')"; mkdir -p "$D/src"
+printf '{"name":"t","config":{"apiUrl":"http://localhost:3000"}}\n' > "$D/package.json"
+printf 'import raw from "../package.json?raw";\n' > "$D/src/App.ts"
+OUT="$(bash "$GUARD" "$D" 2>&1)"
+rr_has 'APPLE-2.1-STAGING-BACKEND' && ok "ns-3g a Vite query import still keeps package.json" || bad "ns-3g a Vite query import still keeps package.json"
+rm -rf "$D"
+D="$(mk_ship 'let api = "https://api.acme.io"')"; mkdir -p "$D/src"
+printf '{"name":"t","config":{"apiUrl":"http://localhost:3000"}}\n' > "$D/package.json"
+printf 'const {config} = require(\x60../package.json\x60);\n' > "$D/src/App.js"
+OUT="$(bash "$GUARD" "$D" 2>&1)"
+rr_has 'APPLE-2.1-STAGING-BACKEND' && ok "ns-3h a backtick require still keeps package.json" || bad "ns-3h a backtick require still keeps package.json"
+rm -rf "$D"
+D="$(mk_ship 'let api = "http://localhost:3000"')"; mkdir -p "$D/.github/workflows"
+printf -- '- run: curl "http://localhost:8081"\n' > "$D/.github/workflows/ci.yml"
+OUT="$(bash "$GUARD" "$D" 2>&1)"
+sh_at 'App/Net.swift:1' && ok "ns-4 a release string beside a CI file still fires, and is the one named" || bad "ns-4 a release string beside a CI file still fires, and is the one named"
+rm -rf "$D"
+D="$(mk_rn_ship a.ts 'export const x = 1')"
+printf '{"expo":{"name":"t","extra":{"apiUrl":"http://localhost:3000"}}}\n' > "$D/app.json"
+OUT="$(bash "$GUARD" "$D" 2>&1)"
+sh_at 'app.json:1' && ok "ns-5 a localhost in app.json still fires" || bad "ns-5 a localhost in app.json still fires"
+rm -rf "$D"
+D="$(mk_ship 'let x = 1')"
+printf 'targets:\n  App:\n    settings:\n      API_URL: "https://staging.acme.io"\n' > "$D/project.yml"
+OUT="$(bash "$GUARD" "$D" 2>&1)"
+sh_at 'project.yml:4' && ok "ns-6 a staging host in an XcodeGen project.yml still fires" || bad "ns-6 a staging host in an XcodeGen project.yml still fires"
+rm -rf "$D"
+P="$(mktemp -d)"; mkdir -p "$P/e2e/app/App"; printf '<plist/>' > "$P/e2e/app/App/Info.plist"
+printf 'let api = "http://localhost:3000"\n' > "$P/e2e/app/App/Net.swift"
+OUT="$(bash "$GUARD" "$P/e2e/app" 2>&1)"
+sh_at 'App/Net.swift:1' && ok "ns-7 a project inside a folder named e2e is still read" || bad "ns-7 a project inside a folder named e2e is still read"
+rm -rf "$P"
+D="$(mk_rn_ship e2eConfig.ts 'export const api = "http://localhost:3000";')"
+OUT="$(bash "$GUARD" "$D" 2>&1)"
+sh_at 'src/e2eConfig.ts:1' && ok "ns-8 a source file named e2e-something still fires" || bad "ns-8 a source file named e2e-something still fires"
+rm -rf "$D"
+D="$(mk_ship 'let x = 1')"; mkdir -p "$D/.github"
+printf 'body: "lorem ipsum dolor sit"\n' > "$D/.github/ISSUE_TEMPLATE.yml"
+OUT="$(bash "$GUARD" "$D" 2>&1)"
+! rr_has 'BOTH-PLACEHOLDER' && ok "ns-9 placeholder text in a .github template stays silent" || bad "ns-9 placeholder text in a .github template stays silent"
+rm -rf "$D"
+D="$(mk_ship 'let copy = "lorem ipsum dolor sit"')"; mkdir -p "$D/.github"
+printf 'body: "lorem ipsum"\n' > "$D/.github/ISSUE_TEMPLATE.yml"
+OUT="$(bash "$GUARD" "$D" 2>&1)"
+rr_has 'BOTH-PLACEHOLDER' && ok "ns-10 placeholder text in shipping Swift still fires" || bad "ns-10 placeholder text in shipping Swift still fires"
+rm -rf "$D"
+# The placeholder finding reads the same list, so it names the shipping file too. Twenty test files, so\n# one is listed before the shipping file whatever order the file system returns.
+D="$(mk_rn_ship copy.ts 'export const body = "lorem ipsum dolor sit";')"
+for i in 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 18 19 20; do
+  mkdir -p "$D/src/f$i"; printf "it('renders', () => expect(render('lorem ipsum')).toBeTruthy())\n" > "$D/src/f$i/copy.test.ts"
+done
+OUT="$(bash "$GUARD" "$D" 2>&1)"
+printf '%s\n' "$OUT" | grep -A1 'BOTH-PLACEHOLDER' | grep -q '^      file\. src/copy\.ts:1$' && ok "ptr-4 the placeholder finding names the shipping file, not a test file" || bad "ptr-4 the placeholder finding names the shipping file, not a test file"
+rm -rf "$D"
+
+# macOS ships bash 3.2 as /bin/bash. CI runs a newer bash, so only a Mac run catches a 3.2 parse error.
+if [ -x /bin/bash ] && /bin/bash -c '[ "${BASH_VERSINFO[0]}" -lt 4 ]'; then
+  /bin/bash -n "$GUARD" 2>/dev/null && ok "bash32 the guard parses under macOS /bin/bash 3.2" || bad "bash32 the guard parses under macOS /bin/bash 3.2"
+fi
+
+# Xcode writes SDK-conditional build setting keys in quotes.
+D="$(gs_ios ok.swift 'let a = 1')"
+mkdir_proj "$D" 'IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+        "IPHONEOS_DEPLOYMENT_TARGET[sdk=iphoneos*]" = 12.0;'
+gs_check "ios13-quoted-1 a quoted device override below the floor is flagged" "$D" 'APPLE-MIN-DEPLOYMENT-TARGET-IOS13' 1
+D="$(gs_ios ok.swift 'let a = 1')"
+mkdir_proj "$D" 'IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+        "IPHONEOS_DEPLOYMENT_TARGET[sdk=iphoneos*]" = 15.0;'
+gs_check "ios13-quoted-2 a quoted device override above the floor stays silent" "$D" 'APPLE-MIN-DEPLOYMENT-TARGET-IOS13' 0
+D="$(gs_ios ok.swift 'let a = 1')"
+mkdir_proj "$D" 'IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+        "IPHONEOS_DEPLOYMENT_TARGET[sdk=iphonesimulator*]" = 12.0;'
+gs_check "ios13-quoted-3 a simulator-only 12.0 does not count" "$D" 'APPLE-MIN-DEPLOYMENT-TARGET-IOS13' 0
+D="$(gs_ios ok.swift 'let a = 1')"; mkdir -p "$D/App.xcodeproj"
+printf "{\n P1 = {\n isa = XCBuildConfiguration;\n buildSettings = {\n IPHONEOS_DEPLOYMENT_TARGET = 12.0;\n };\n name = Release;\n };\n A1 = {\n isa = XCBuildConfiguration;\n buildSettings = {\n PRODUCT_BUNDLE_IDENTIFIER = com.x.app;\n \"IPHONEOS_DEPLOYMENT_TARGET[sdk=iphonesimulator*]\" = 15.0;\n };\n name = Release;\n };\n}\n" > "$D/App.xcodeproj/project.pbxproj"
+gs_check "ios13-quoted-4 a simulator-only 15.0 does not hide an inherited 12.0" "$D" 'APPLE-MIN-DEPLOYMENT-TARGET-IOS13' 1
+D="$(gs_ios ok.swift 'let a = 1')"; mkdir -p "$D/App.xcodeproj"
+printf "{\n P1 = {\n isa = XCBuildConfiguration;\n buildSettings = {\n IPHONEOS_DEPLOYMENT_TARGET = 12.0;\n };\n name = Release;\n };\n A1 = {\n isa = XCBuildConfiguration;\n buildSettings = {\n PRODUCT_BUNDLE_IDENTIFIER = com.p;\n \"IPHONEOS_DEPLOYMENT_TARGET[sdk=iphoneos*]\" = 15.0;\n };\n name = Release;\n };\n A2 = {\n isa = XCBuildConfiguration;\n buildSettings = {\n PRODUCT_BUNDLE_IDENTIFIER = com.l;\n };\n name = Release;\n };\n}\n" > "$D/App.xcodeproj/project.pbxproj"
+gs_check "ios13-quoted-5 a quoted 15.0 on one app does not hide another app inheriting 12.0" "$D" 'APPLE-MIN-DEPLOYMENT-TARGET-IOS13' 1
+D="$(gs_ios ok.swift 'let a = 1')"; mkdir -p "$D/App.xcodeproj"
+printf "{\n A1 = {\n isa = XCBuildConfiguration;\n buildSettings = {\n PRODUCT_BUNDLE_IDENTIFIER = com.a;\n \"IPHONEOS_DEPLOYMENT_TARGET[sdk=iphoneos*]\" = 12.0;\n };\n name = Debug;\n };\n A2 = {\n isa = XCBuildConfiguration;\n buildSettings = {\n PRODUCT_BUNDLE_IDENTIFIER = com.a;\n IPHONEOS_DEPLOYMENT_TARGET = 15.0;\n };\n name = Release;\n };\n}\n" > "$D/App.xcodeproj/project.pbxproj"
+gs_check "ios13-quoted-6 a quoted 12.0 in Debug only stays silent" "$D" 'APPLE-MIN-DEPLOYMENT-TARGET-IOS13' 0
+D="$(gs_ios ok.swift 'let a = 1')"; mkdir -p "$D/App.xcodeproj"
+printf "{\n A1 = {\n isa = XCBuildConfiguration;\n buildSettings = {\n PRODUCT_BUNDLE_IDENTIFIER = com.a;\n \"IPHONEOS_DEPLOYMENT_TARGET[sdk=iphoneos*]\" = 12.0;\n };\n name = Profile;\n };\n A2 = {\n isa = XCBuildConfiguration;\n buildSettings = {\n PRODUCT_BUNDLE_IDENTIFIER = com.a;\n IPHONEOS_DEPLOYMENT_TARGET = 15.0;\n };\n name = Release;\n };\n}\n" > "$D/App.xcodeproj/project.pbxproj"
+gs_check "ios13-quoted-10 a quoted 12.0 in Profile only stays silent" "$D" 'APPLE-MIN-DEPLOYMENT-TARGET-IOS13' 0
+D="$(gs_ios ok.swift 'let a = 1')"; mkdir -p "$D/App.xcodeproj"
+printf "{\n P1 = {\n isa = XCBuildConfiguration;\n buildSettings = {\n PRODUCT_NAME = \"$(TARGET_NAME)\";\n \"IPHONEOS_DEPLOYMENT_TARGET[sdk=iphoneos*]\" = 12.0;\n };\n name = Release;\n };\n A1 = {\n isa = XCBuildConfiguration;\n buildSettings = {\n PRODUCT_BUNDLE_IDENTIFIER = com.a;\n IPHONEOS_DEPLOYMENT_TARGET = 15.0;\n };\n name = Release;\n };\n}\n" > "$D/App.xcodeproj/project.pbxproj"
+gs_check "ios13-quoted-11 a quoted project-level 12.0 the app overrides stays silent" "$D" 'APPLE-MIN-DEPLOYMENT-TARGET-IOS13' 0
+D="$(gs_ios ok.swift 'let a = 1')"; mkdir -p "$D/App.xcodeproj"
+printf "{\n A1 = {\n isa = XCBuildConfiguration;\n buildSettings = {\n PRODUCT_BUNDLE_IDENTIFIER = com.a;\n ARCHS = arm64;\n IPHONEOS_DEPLOYMENT_TARGET = 15.0;\n \"IPHONEOS_DEPLOYMENT_TARGET[sdk=iphoneos*]\" = 12.0;\n \"IPHONEOS_DEPLOYMENT_TARGET[sdk=iphoneos*][arch=arm64]\" = 15.0;\n };\n name = Release;\n };\n}\n" > "$D/App.xcodeproj/project.pbxproj"
+gs_check "ios13-quoted-12 a more specific arch key may override, so it stays silent" "$D" 'APPLE-MIN-DEPLOYMENT-TARGET-IOS13' 0
+D="$(gs_ios ok.swift 'let a = 1')"; mkdir -p "$D/App.xcodeproj"
+printf "{\n objects = {\n PR1 = {\n isa = PBXProject;\n buildConfigurationList = CL1;\n };\n CL1 = {\n isa = XCConfigurationList;\n buildConfigurations = (\n P1,\n );\n };\n P1 = {\n isa = XCBuildConfiguration;\n buildSettings = {\n PRODUCT_BUNDLE_IDENTIFIER = com.acme.App;\n \"IPHONEOS_DEPLOYMENT_TARGET[sdk=iphoneos*]\" = 12.0;\n };\n name = Release;\n };\n A1 = {\n isa = XCBuildConfiguration;\n buildSettings = {\n PRODUCT_BUNDLE_IDENTIFIER = com.acme.App;\n IPHONEOS_DEPLOYMENT_TARGET = 15.0;\n };\n name = Release;\n };\n };\n}\n" > "$D/App.xcodeproj/project.pbxproj"
+gs_check "ios13-quoted-13 a quoted 12.0 in the PBXProject configuration stays silent" "$D" 'APPLE-MIN-DEPLOYMENT-TARGET-IOS13' 0
+D="$(gs_ios ok.swift 'let a = 1')"; mkdir -p "$D/App.xcodeproj"
+printf "{\n objects = {\n T1 = {\n isa = PBXNativeTarget;\n buildConfigurationList = CL1;\n productType = \"com.apple.product-type.application\";\n };\n T2 = {\n isa = PBXNativeTarget;\n buildConfigurationList = CL2;\n productType = \"com.apple.product-type.bundle.unit-test\";\n };\n CL1 = {\n isa = XCConfigurationList;\n buildConfigurations = (\n A1,\n );\n };\n CL2 = {\n isa = XCConfigurationList;\n buildConfigurations = (\n B1,\n );\n };\n A1 = {\n isa = XCBuildConfiguration;\n buildSettings = {\n PRODUCT_BUNDLE_IDENTIFIER = com.acme.App;\n IPHONEOS_DEPLOYMENT_TARGET = 15.0;\n };\n name = Release;\n };\n B1 = {\n isa = XCBuildConfiguration;\n buildSettings = {\n PRODUCT_BUNDLE_IDENTIFIER = com.acme.AppTests;\n IPHONEOS_DEPLOYMENT_TARGET = 15.0;\n \"IPHONEOS_DEPLOYMENT_TARGET[sdk=iphoneos*]\" = 12.0;\n };\n name = Release;\n };\n };\n}\n" > "$D/App.xcodeproj/project.pbxproj"
+gs_check "ios13-quoted-14 a quoted 12.0 on a unit-test bundle stays silent" "$D" 'APPLE-MIN-DEPLOYMENT-TARGET-IOS13' 0
+D="$(gs_ios ok.swift 'let a = 1')"; mkdir -p "$D/App.xcodeproj"
+printf "{\n P1 = {\n isa = XCBuildConfiguration;\n buildSettings = {\n \"IPHONEOS_DEPLOYMENT_TARGET[sdk=iphoneos*]\" = 12.0;\n };\n name = Release;\n };\n A1 = {\n isa = XCBuildConfiguration;\n buildSettings = {\n PRODUCT_BUNDLE_IDENTIFIER = com.a;\n \"IPHONEOS_DEPLOYMENT_TARGET[sdk=iphoneos*]\" = 15.0;\n };\n name = Release;\n };\n}\n" > "$D/App.xcodeproj/project.pbxproj"
+gs_check "ios13-quoted-7 a quoted project 12.0 that the app overrides stays silent" "$D" 'APPLE-MIN-DEPLOYMENT-TARGET-IOS13' 0
+D="$(gs_ios ok.swift 'let a = 1')"; mkdir -p "$D/App.xcodeproj"
+printf "{\n A1 = {\n isa = XCBuildConfiguration;\n buildSettings = {\n PRODUCT_BUNDLE_IDENTIFIER = com.a;\n IPHONEOS_DEPLOYMENT_TARGET = 15.0;\n \"IPHONEOS_DEPLOYMENT_TARGET[sdk=iphoneos12.*]\" = 12.0;\n };\n name = Release;\n };\n}\n" > "$D/App.xcodeproj/project.pbxproj"
+gs_check "ios13-quoted-8 a key tied to an old SDK version stays silent" "$D" 'APPLE-MIN-DEPLOYMENT-TARGET-IOS13' 0
+D="$(gs_ios ok.swift 'let a = 1')"; mkdir -p "$D/App.xcodeproj"
+printf "{\n A1 = {\n isa = XCBuildConfiguration;\n buildSettings = {\n PRODUCT_BUNDLE_IDENTIFIER = com.a;\n IPHONEOS_DEPLOYMENT_TARGET = 15.0;\n // \"IPHONEOS_DEPLOYMENT_TARGET[sdk=iphoneos*]\" = 12.0;\n };\n name = Release;\n };\n}\n" > "$D/App.xcodeproj/project.pbxproj"
+gs_check "ios13-quoted-9 a commented-out quoted key stays silent" "$D" 'APPLE-MIN-DEPLOYMENT-TARGET-IOS13' 0
+
 echo ""
 echo "app-store-compliance-guard-test: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ]

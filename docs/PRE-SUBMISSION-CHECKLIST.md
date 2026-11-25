@@ -25,12 +25,18 @@ Then work down the page. Do Shared first, then the store you ship to. Skip any s
 - [ ] The production backend is live and reachable for the entire review window.
 - [ ] A working demo account is provided, or a demo mode exists, for any feature behind login.
 - [ ] All in app purchases are live, visible, and complete a real transaction in the review build.
+- [ ] The review notes give the tap path to every feature behind login, region, or payment, so the reviewer never has to search.
+- [ ] The first launch works on the oldest and smallest device you support, signed out, on a slow network. A short screen recording of that first minute attached to the review notes answers most reviewer questions before they are asked.
+- [ ] These checks are recorded in `.app-review-readiness.json` in the app folder, so the guard reads them and blocks on a recorded fail. See [what the scan proves](WHAT-THE-SCAN-PROVES.md).
 
 ### Privacy and data
 - [ ] A privacy policy is published, reachable from inside the app, and accurate.
 - [ ] Every data collection has user consent before it happens.
 - [ ] Every permission has a specific reason string that names the real feature using it.
 - [ ] Account creating apps offer in app account deletion.
+- [ ] Account deletion tested on a real device. Delete the account, wait for the completion time you tell users, then check that the account and its sessions are gone, that its data is deleted except what you disclose keeping (Apple allows records the law requires, Google Play also allows security, fraud-prevention, and regulatory records), and that signing in again does not bring the old account back.
+- [ ] Apple. A custom screen before a permission alert has one button titled Continue or Next, never Allow, and no Close or Cancel, unless the screen also collects legally required consent (Apple HIG Privacy, 5.1.1(iv)).
+- [ ] Google Play. A screen that explains a permission before the request lets the user decline, and the app keeps working without it (Android permission guidance).
 - [ ] Users can withdraw consent and the app still works for non core features.
 - [ ] Every third party SDK and its data behavior is known and declared.
 
@@ -47,6 +53,9 @@ For a deep-dive reference across platform best practices, see the [mobile securi
 ### Metadata and listing
 - [ ] The app name, description, and screenshots match what the app actually does.
 - [ ] Screenshots show the app in use, not a splash or login screen.
+- [ ] Screenshots are captured from this build on every device family you support, iPad included if the app runs on iPad.
+- [ ] Every price shown in a screenshot, preview, or description matches the price the store and your backend charge today.
+- [ ] App previews use only screen captures of the app itself, no filmed hands and no footage from outside the app (Apple 2.3.4). Developers report rejections for previews wrapped in device frames, so leave them out.
 - [ ] Creative assets (product page header, search result art) show the app or its brand, suit all audiences, and carry no prices, discounts, unverifiable claims, or references to other apps (Apple 2.3.14, 16 October 2026).
 - [ ] No keyword stuffing in the name, subtitle, or description.
 - [ ] The age or content rating questionnaire is answered honestly.
@@ -55,6 +64,7 @@ For a deep-dive reference across platform best practices, see the [mobile securi
 ### Monetization
 - [ ] Digital goods use the official store billing.
 - [ ] Subscription terms, renewal, charges, and cancellation are disclosed before purchase.
+- [ ] Free trial or intro offer wording shows only to users who are still eligible (StoreKit 2 `isEligibleForIntroOffer`), and states what is charged after the trial.
 - [ ] Loot boxes or random rewards disclose odds before purchase.
 
 ## Apple specific
@@ -123,6 +133,7 @@ The full hard rules and sources are in the [global regulatory guide](GLOBAL-REGU
 - [ ] Australia under-16 age assurance for an age-restricted social media platform.
 - [ ] South Korea Korea-only binary with an approved payment provider if alternative billing is used.
 - [ ] China MIIT app filing with a local entity, plus PIPL and a Banhao license for a game.
+- [ ] China mainland App Store. On App Compliance, an Account Holder or Admin answers AI-Generated or Synthetic Content and Security Assessment for every app on that storefront, including No when the feature is absent, disabled, or geoblocked. A Yes answer includes the approved filing number and registered filing name, an authorization or usage agreement when someone else's technology powers the AI feature, and, for a Security Assessment, a National Internet Security Management Service Platform screenshot showing pass plus the report with the company seal. Existing apps must be completed and verified by 31 January 2027 to remain available. The app can release in other regions while China mainland stays unavailable until verification succeeds ([Apple](https://developer.apple.com/help/app-store-connect/manage-compliance-information/view-china-mainland-compliance-information/)).
 
 ## Platform mechanics gate (both stores, if the item applies)
 
@@ -140,7 +151,7 @@ Apple.
 
 Android.
 
-- [ ] Developer identity verified if the app is distributed to Brazil, Indonesia, Singapore, or Thailand (required since 30 September 2026), and every Play package name registered in Play Console.
+- [ ] Developer identity verified if the app is distributed to Brazil, Indonesia, Singapore, or Thailand (required since 30 September 2026), and every Play package name registered in Play Console. The global rollout begins in January 2027 (month only, tracked as 1 January 2027) with Google Play, Galaxy Store, Honor, Oppo, Xiaomi, Transsion, and Vivo, then expands over several months. A limited distribution account shares to 50 authorized devices.
 - [ ] Every foreground service declares `foregroundServiceType` in the manifest with the matching permission, and each type is declared in the Play Console with a demo video.
 - [ ] No SafetyNet Attestation. attestation uses the Play Integrity API, verified server-side.
 - [ ] Play Billing Library at version 8 or later (required for new apps and updates since 31 August 2026, extension available to 1 November 2026), and digital goods route through Play Billing.

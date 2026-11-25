@@ -2,11 +2,15 @@
 """Release readiness audit. Usage. release-audit.py <app-dir> [--metadata <pulled-listing-dir>]
 Exit 0 clear, 2 blocked on a critical or high finding, 3 incomplete scan, 1 bad input."""
 
+import atexit
 import os
+import shutil
 import sys
+import tempfile
 import subprocess
 import json
 import re
+import shlex
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 GUARD_NAME = "app-store-compliance-guard.sh"
@@ -166,9 +170,41 @@ def decide_status(findings, problems):
     return "PASSED", 0
 
 
+def python_cmd(script, *args):
+    """The interpreter running this audit, never a guessed name like python3 (#2333)."""
+    return [sys.executable, script, *args]
+
+
+def child_env():
+    """The test suites call python3 by name. Where it is missing (Windows), a shim
+    first on PATH runs this interpreter instead (#2333)."""
+    env = dict(os.environ)
+    # An empty entry or "." searches the current folder, and Windows os.defpath starts with ".".
+    raw = env.get("PATH") or os.defpath
+    env["PATH"] = os.pathsep.join(p for p in raw.split(os.pathsep) if p and p != ".")
+    # Windows which() also searches the current folder, so a stray python3.exe there must not skip the shim.
+    if os.name != "nt" and shutil.which("python3", path=env["PATH"]):
+        return env
+    shim_dir = tempfile.mkdtemp(prefix="asc-python3-")
+    atexit.register(shutil.rmtree, shim_dir, True)
+    shim = os.path.join(shim_dir, "python3")
+    exe = sys.executable.replace(chr(92), "/") if os.name == "nt" else sys.executable
+    with open(shim, "w", encoding="utf-8", newline="\n") as f:
+        f.write('#!/bin/sh\nexec %s "$@"\n' % shlex.quote(exe))
+    os.chmod(shim, 0o755)
+    env["PATH"] = shim_dir + (os.pathsep + env["PATH"] if env["PATH"] else "")
+    return env
+
+
+CHILD_ENV = None
+
+
 def run_command(args, cwd=ROOT):
+    global CHILD_ENV
     try:
-        res = subprocess.run(args, cwd=cwd, capture_output=True, text=True)
+        if CHILD_ENV is None:
+            CHILD_ENV = child_env()
+        res = subprocess.run(args, cwd=cwd, capture_output=True, text=True, env=CHILD_ENV)
         return res.returncode, res.stdout, res.stderr
     except Exception as e:
         return -1, "", str(e)
@@ -394,7 +430,7 @@ def main():
     # --- Step 1. Run Internal Validation and Test Engines ---
     print("Step 1 of 2. Checking the playbook itself first. This takes about two minutes.", flush=True)
 
-    val_code, val_out, val_err = run_command(["python3", "scripts/validate.py"])
+    val_code, val_out, val_err = run_command(python_cmd("scripts/validate.py"))
     if val_code != 0:
         print("  ERROR: validate.py failed")
         print(val_out)
@@ -433,7 +469,7 @@ def main():
     # Run metadata-audit.py
     # The pulled listing from --metadata when given, otherwise the app folder itself
     meta_code, meta_out, meta_err = run_command(
-        ["python3", "scripts/metadata-audit.py", meta_dir or target_dir]
+        python_cmd("scripts/metadata-audit.py", meta_dir or target_dir)
     )
 
     patterns_dict = load_patterns()
@@ -509,6 +545,14 @@ def parse_findings(all_scanner_stdout):
     return findings
 
 
+def area_status(findings, problems):
+    if any(f["severity"] in BLOCKING for f in findings):
+        return "BLOCKED"
+    if findings:
+        return "ADVISORY"
+    return "NOT_CHECKED" if problems else "NO_FINDINGS"
+
+
 def compile_report(target_dir, findings, problems, patterns_dict, affected_files_map):
     # --- Step 3. Compile Report and Map to 13 Areas ---
     area_findings = {area: [] for area in REQUIRED_AREAS}
@@ -561,17 +605,12 @@ def compile_report(target_dir, findings, problems, patterns_dict, affected_files
     report_lines.append("| --- | --- | --- | --- |")
 
     for area in REQUIRED_AREAS:
-        area_status = "PASSED"
         area_f = area_findings[area]
-        if area_f:
-            if any(af["severity"] in BLOCKING for af in area_f):
-                area_status = "BLOCKED"
-            else:
-                area_status = "ADVISORY"
+        status = area_status(area_f, problems)
 
         num_risks = len(area_f)
         reviewers = RECOMMENDED_REVIEWERS.get(area, "Lead Developer")
-        report_lines.append(f"| {area} | {area_status} | {num_risks} | {reviewers} |")
+        report_lines.append(f"| {area} | {status} | {num_risks} | {reviewers} |")
     report_lines.append("")
 
     report_lines.append("## Detailed Compliance Analysis")
@@ -579,22 +618,20 @@ def compile_report(target_dir, findings, problems, patterns_dict, affected_files
 
     for idx, area in enumerate(REQUIRED_AREAS, 1):
         area_f = area_findings[area]
-        area_status = "PASSED"
-        if area_f:
-            if any(af["severity"] in BLOCKING for af in area_f):
-                area_status = "BLOCKED"
-            else:
-                area_status = "ADVISORY"
+        status = area_status(area_f, problems)
 
         report_lines.append(f"### {idx}. {area}")
-        report_lines.append(f"- Status: {area_status}")
+        report_lines.append(f"- Status: {status}")
         report_lines.append(
             f"- Recommended Reviewers: {RECOMMENDED_REVIEWERS.get(area, 'Lead Developer')}"
         )
         report_lines.append("")
 
         if not area_f:
-            report_lines.append("No outstanding risks found for this area.")
+            report_lines.append(
+                "Scan coverage is incomplete. No verdict is available for this area."
+                if problems else "No automatic finding for this area. Check any manual requirements separately."
+            )
             report_lines.append("")
             continue
 
