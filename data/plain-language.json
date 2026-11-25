@@ -447,10 +447,10 @@
       "fix": "Ask for location only while your app is in use, if you can.\nIf you need it in the background, you must:\n- Have a main feature that needs it.\n- Show users a clear, easy to see notice.\n- Fill in Google's permission form."
     },
     "GOOGLE-PERM-SMS-CALLLOG": {
-      "from": "7025f67e",
-      "title": "Text or call log access without approval",
-      "problem": "Your app asks for texts or call history without an approved main use.\n- Texts: reading, sending or getting them.\n- Call history: reading or changing it.\n- From 26 August 2026, phone call account checks stop qualifying (READ_CALL_LOG).",
-      "fix": "Fill in Google's permission form for an approved main use.\nOr remove the permission.\nTo check accounts, use one of these instead:\n- Digital Credentials API\n- SMS Retriever API"
+      "from": "431456b7",
+      "title": "Uses texts or call history without approval",
+      "problem": "Your app asks for text or call history access without an approved reason.\n- This covers reading, sending or receiving texts (READ_SMS and others).\n- It also covers reading or changing call history.\n- Until 27 January 2027, checking accounts by phone call still counts.\n- From that date, it no longer allows reading call history.",
+      "fix": "Apply for an approved main use on Google's declaration form, or drop the permission.\nTo check accounts, use one of these Google tools instead:\n- Google's digital ID tool (Digital Credentials API).\n- A checking service built on that digital ID tool.\n- Google's tool that reads a check code from a text.\n- Google's tool that asks the user before reading a text."
     },
     "GOOGLE-PLAY-AGE-SIGNALS-MISUSE": {
       "from": "878de0e1",
@@ -727,13 +727,19 @@
       "title": "Missing a 64-bit version of built-in code",
       "problem": "Google Play needs a 64-bit copy of every low-level code library.\nYour app's chip list (abiFilters) has 32-bit Arm but not 64-bit Arm.\nThat fails the rule.",
       "fix": "Add these to the chip list (abiFilters):\n- arm64-v8a, for 64-bit Arm phones\n- x86_64, if your app also ships x86"
+    },
+    "APPLE-5.1.1-PRE-PROMPT-ALLOW-BUTTON": {
+      "from": "c1455e2d",
+      "title": "Possible Allow button before permission alert",
+      "problem": "Apple rejects screens that use quick taps to sway permission choices.\nOur check flags buttons titled Allow or Allow plus a noun.\nIt looks in Apple code files that also ask permission.\nSo a match is possible, not proof.\nIt skips comments and Android files. Blind spots:\n- Permission asked in another file\n- SwiftUI buttons labelled by a separate Text view\n- Odd comment markers that hide or expose buttons\nA person checks for Close, Cancel, rewards or alert pictures.",
+      "fix": "Give the screen before Apple's alert one button, Continue or Next.\n- It opens Apple's permission alert.\n- Offer no reward.\n- Show no picture of the alert.\n- Leave out Close or Cancel.\n- Exception: keep them if the screen collects legally required consent.\nWhere you can, let people use the app without the permission.\nA Settings switch or plain label saying Allow is fine."
     }
   },
   "deadlines": {
     "EU-AI-ACT-ART-4": {
-      "from": "f11193a3",
-      "title": "Train your team to understand AI",
-      "summary": "This applies if you make an AI system or use one.\nYour team must know enough about AI for how you use it.\nA written policy, onboarding and log help prove it, but aren't required."
+      "from": "dce9e33a",
+      "title": "Help your team learn about AI",
+      "summary": "This rule applies as rewritten on 27 July 2026. If you make or use AI:\n- Help staff and others running it for you learn about AI.\n- Fit this to their technical knowledge, experience, education and training.\n- Fit it to where it's used and who it's used on.\nYou don't have to guarantee anyone reaches a set skill level. A written policy, onboarding and log are good proof. The law doesn't demand them."
     },
     "EU-AI-ACT-ART-5": {
       "from": "7c2b1cfc",
@@ -916,9 +922,9 @@
       "summary": "New apps and updates must target these levels from 31 August 2026:\n- Most apps: Android 16 (API 36) or higher.\n- Watch and car apps: API 35 or higher.\n- TV and XR headset apps: API 34 or higher.\nYou can ask for more time in Play Console, up to 1 November 2026.\nExisting apps must target API 35 or higher. Otherwise new users on newer devices can't get them."
     },
     "ANDROID-DEVELOPER-VERIFICATION": {
-      "from": "32adcc1c",
-      "title": "Register apps to a verified developer",
-      "summary": "From 30 September 2026, apps installed on certified devices there need a verified developer.\n- Register in the Android Developer Console.\n- Full distribution costs USD 25.\n- Free limited accounts cover up to 20 devices.\n- Organizations need a D-U-N-S number.\n- This goes worldwide in 2027, exact date not yet published.\n- Play apps have a separate rule, due 30 September 2026."
+      "from": "e982e3fd",
+      "title": "Android apps need a verified developer",
+      "summary": "From 30 September 2026, apps installed on certified devices here need a verified developer.\nRegister in the Android Developer Console:\n- Sharing to everyone costs USD 25.\n- Students and hobbyists get free limited accounts.\n- These can share to 50 authorized devices.\n- Organizations need a D-U-N-S number.\nGoogle's 19 November 2026 blog post said the limit rose from 20 to 50. Worldwide rollout starts in January 2027."
     },
     "GOOGLE-PLAY-PHOTO-VIDEO-PERM": {
       "from": "76f169ae",
@@ -956,9 +962,9 @@
       "summary": "These apps must be published from an organization account:\n- Banking, loans, stock trading and investment funds.\n- Crypto wallets and exchanges.\n- Medical apps and human research apps.\n- VPN apps approved by Google.\n- Government apps.\nYour business ID number (D-U-N-S) must match your Dun and Bradstreet profile. Apps that don't comply are removed."
     },
     "GOOGLE-PLAY-APP-PACKAGE-REGISTRATION": {
-      "from": "c03d77e4",
-      "title": "Register each app's ID with Google",
-      "summary": "Register every Google Play app's unique ID (package name) in Play Console. This applies worldwide. It's separate from the rules for Brazil, Indonesia, Singapore and Thailand. Those cover apps installed from outside Google Play. If you don't register, your app may be removed everywhere."
+      "from": "e3fa86ca",
+      "title": "Register every Play app's package name",
+      "summary": "Register each app's package name in Play Console by 30 September 2026.\n- This applies worldwide.\n- It's separate from the rule for Brazil, Indonesia, Singapore and Thailand.\n- Unregistered apps may be removed from Google Play everywhere.\n- Google's 15 July 2026 post says you can register non-Play apps too.\n- Then they can install on certified Android phones.\n- New user protections on those phones start in January 2027."
     },
     "GOOGLE-US-ALT-BILLING-FEE-REPORTING": {
       "from": "741fcc46",
@@ -1064,11 +1070,6 @@
       "from": "9dd3b48a",
       "title": "Block under 16s from social apps",
       "summary": "The rules are due by the end of 2026. They start in spring 2027, tracked as 1 March 2027. Social apps where users reach each other must block anyone under 16. AI romance chatbots must block anyone under 18. For 16 and 17 year olds, social apps must:\n- Turn off livestreaming by default.\n- Turn off contact from strangers by default.\n- Turn off autoplay by default.\n- Turn off personalised feeds by default.\n- Stop notifications from midnight to 6am."
-    },
-    "EU-AI-ACT-MARKING-RETROFIT-2026": {
-      "from": "aa9965fa",
-      "title": "Add AI labels and ban abuse imagery",
-      "summary": "This covers AI that makes audio, images, video or text.\nIf it was on the market before 2 August 2026, mark its output.\nThe mark must show it's AI-made in a form computers can read.\nStop any AI system that is meant to make, or could foreseeably make:\n- Intimate images of people without their consent.\n- Child sexual abuse material."
     },
     "EU-PRODUCT-LIABILITY-SOFTWARE-2026": {
       "from": "b82c7e3f",
@@ -1259,6 +1260,31 @@
       "from": "09a73ad4",
       "title": "Uploads must target iOS 13 or later",
       "summary": "This covers iPhone and iPad apps you upload to App Store Connect. Each upload must target iOS 13 or later. This already applies. The check before you submit flags a lower target (IPHONEOS_DEPLOYMENT_TARGET or Podfile platform)."
+    },
+    "GOOGLE-PLAY-TRADER-STATUS-2027": {
+      "from": "8c493c31",
+      "title": "Declare whether you're a trader",
+      "summary": "Every active account must declare trader status in Play Console wherever its apps go. No EEA or UK apps? You may say non-trader. New accounts declare on signup. Others must by 1 February 2027.\nTraders must:\n- Confirm they follow the relevant laws.\n- Link each app's terms of service.\n- Personal accounts add a phone number. The address shows.\nRisks:\n- Missed date: updates blocked, apps pulled worldwide.\n- False non-trader claim: apps pulled worldwide.\n- Lying to dodge checks: account suspended or closed worldwide."
+    },
+    "GOOGLE-PLAY-MARKETPLACE-DISPLAY-2027": {
+      "from": "a2903eac",
+      "title": "Play shows your trader details to users",
+      "summary": "From 1 March 2027, Play runs as a marketplace in the EEA and UK.\nIf you declared as a trader, users everywhere see:\n- Your contact details. Individual accounts show a phone and address.\n- Your D-U-N-S number under App support.\n- Your terms of service link, if you gave one.\nUsers in the EEA and the UK also see:\n- Your name instead of Google under Offered by.\n- Your promise that your products and services follow local laws."
+    },
+    "APPLE-CALIFORNIA-SALES-TAX-DIGITAL-2027": {
+      "from": "4fd6d911",
+      "title": "California tax applies to some app categories",
+      "summary": "From 1 January 2027, California sales and use tax covers these tax categories:\n- SaaS\n- App Store Software\n- Software Training Material\n- Dating\n- Boosting\nUS prices show before tax, and your earnings stay the same. Buyers may pay more. The last four categories get a new SaaS setting.\nBefore 1 January 2027, check each app and in-app purchase's tax category. Check the SaaS setting too, in Pricing and Availability. Check in-app price text doesn't promise US buyers a total with tax."
+    },
+    "APPLE-PRICE-EQUALIZATION-2026-12-03": {
+      "from": "8a0d7eb9",
+      "title": "Apple changes prices in five countries",
+      "summary": "On 3 December 2026, Apple updates app and in-app purchase prices there. Botswana now has 14 percent VAT, and Rwanda 18 percent. Apple now collects that tax.\nIs one of these five your base store? Its price stays as you set it. Apple then adjusts your other auto-priced stores to match it.\nAuto-renewing subscriptions don't change. Nor do stores where you set prices by hand.\nCheck prices written into screenshots, promo text or app text for these stores."
+    },
+    "GOOGLE-PLAY-CALL-LOG-VERIFICATION-2027": {
+      "from": "b0acbe01",
+      "title": "Stop using call logs to verify accounts",
+      "summary": "From 27 January 2027, don't use call log access (READ_CALL_LOG) for phone call verification. Until then, Google still allows it. Verify accounts with one of these instead:\n- The Digital Credentials API, directly or through a provider built on it\n- The SMS Retriever API\n- The SMS User Consent API, added 29 October 2026"
     }
   },
   "checklist": {
@@ -1286,6 +1312,15 @@
     "8aec4abb": {
       "text": "Every in app purchase works in the review build.\n- Each one is live and visible.\n- Each one completes a real payment."
     },
+    "ec139868": {
+      "text": "Your review notes show how to reach every locked feature.\n- Give the exact taps for features behind login, region or payment.\n- The reviewer should never have to search."
+    },
+    "c293b08b": {
+      "text": "Your app's first launch works in tough conditions.\n- On the oldest and smallest device you support.\n- While signed out.\n- On a slow network.\n- Record a short video of the screen during that first minute.\n- Attach it to your review notes.\n- It answers most reviewer questions before they're asked."
+    },
+    "acfa596a": {
+      "text": "These checks are saved in your app folder's check file (.app-review-readiness.json).\n- The guard tool reads this file.\n- It blocks you if a check is marked as failed.\n- See the guide called What the scan proves."
+    },
     "a8af98d0": {
       "text": "Your privacy policy is published and correct.\n- People can open it from inside your app."
     },
@@ -1297,6 +1332,15 @@
     },
     "de8feace": {
       "text": "If people can create an account, they can delete it in your app."
+    },
+    "f2cf8672": {
+      "text": "Account deletion is tested on a real phone.\n- Delete it, then wait the time you tell users.\n- The account and its logins are gone.\n- Its data is deleted, except what you say you keep.\n- Apple allows keeping records the law requires.\n- Google Play also allows security, fraud and regulator records.\n- Signing in again doesn't bring the old account back."
+    },
+    "ccd22fd5": {
+      "text": "On Apple, your own screen before a permission alert has one button (5.1.1(iv)).\n- Name it Continue or Next, never Allow.\n- Don't add Close or Cancel.\n- Unless the screen also collects consent the law requires."
+    },
+    "7ef63033": {
+      "text": "On Google Play, users can say no to a permission.\n- Your screen explaining it before the request lets them decline.\n- Your app keeps working without that permission."
     },
     "e3ffda7a": {
       "text": "Users can take back consent, and features that aren't core still work."
@@ -1331,6 +1375,15 @@
     "a5563f6e": {
       "text": "Screenshots show your app in use.\n- Not the opening screen or the login screen."
     },
+    "72eae924": {
+      "text": "Screenshots come from this build, on every device type you support.\n- Include iPad if your app runs on iPad."
+    },
+    "29b64933": {
+      "text": "Every price on your store page matches what you charge today.\n- Check screenshots, previews and the description.\n- Match what the store and your server charge."
+    },
+    "7f60c1f7": {
+      "text": "App previews show only screen recordings of your app (Apple 2.3.4).\n- No filmed hands.\n- No footage from outside the app.\n- Don't put previews inside device frames.\n- Developers report rejections for that."
+    },
     "c745c1b3": {
       "text": "Store page images follow Apple's rules (Apple 2.3.14, 16 October 2026).\n- This covers the page header and search result images.\n- They show your app or its brand.\n- They suit all ages.\n- They show no prices or discounts.\n- They make no claims that can't be checked.\n- They don't mention other apps."
     },
@@ -1348,6 +1401,9 @@
     },
     "2245ec0c": {
       "text": "Subscription details are shown before people buy.\n- The terms.\n- How renewal works.\n- What they'll be charged.\n- How to cancel."
+    },
+    "8d55bb52": {
+      "text": "Free trial or intro offer text shows only to users who still qualify.\n- Check who qualifies with Apple's check (StoreKit 2 isEligibleForIntroOffer).\n- The text says what users pay after the trial."
     },
     "0f6fb17c": {
       "text": "Loot boxes and random rewards show the odds before people buy."
@@ -1526,8 +1582,8 @@
     "46a9fa4a": {
       "text": "Your fixed-odds betting app for Brazil is ready for Apple's checks.\n- These rules apply since 8 May 2026.\n- Add a valid license from Brazil's Secretariat of Prizes and Bets (SPA).\n- Put it in the App Review Information section.\n- Set the Brazil age rating to A18 in the questionnaire.\n- Send it as a new app version so Apple can verify it."
     },
-    "3d47b22d": {
-      "text": "Your developer identity is verified with Google if your app reaches certain countries.\n- This applies to Brazil, Indonesia, Singapore and Thailand.\n- It's required since 30 September 2026.\n- Every app ID (package name) is registered in Play Console."
+    "ca0ebb83": {
+      "text": "Your identity is verified and every package name registered in Play Console.\n- Required since 30 September 2026 if shipping to Brazil, Indonesia, Singapore, Thailand.\n- Global rollout: January 2027 (tracked 1 January 2027), over several months.\n- Starts with Google Play, Galaxy Store, Honor, Oppo, Xiaomi, Transsion, Vivo.\n- Limited distribution accounts share to 50 authorized devices."
     },
     "731961f9": {
       "text": "Every visible task your app keeps running is declared in two places.\n- In the app's setup file, set its type (foregroundServiceType).\n- Add the matching permission there too.\n- In Play Console, declare each type.\n- Add a demo video for each type."
