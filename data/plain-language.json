@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "about": "The rules, deadlines and checklist boxes of this playbook in everyday words, for people who are not developers or lawyers, written with scripts/plain-language.py and each one checked against its original for meaning. \"from\" is a fingerprint of the original an entry was written from: when the original changes, apps show the original until this file is written again.",
+  "about": "The rules, deadlines and checklist boxes of this playbook in everyday words, for people who are not developers or lawyers, written with scripts/plain-language.py and each one checked against its original for meaning. \"from\" is a fingerprint of the original an entry was written from: when the original changes, apps show the original until this file is written again. A rule or deadline too long to shorten without losing a condition has a plain title only, and its other fields are empty.",
   "rules": {
     "ANDROID-ACCESSIBILITY-FONTSCALING": {
       "from": "0a6c6bb6",
@@ -85,6 +85,12 @@
       "title": "No clear notice before reading private data",
       "problem": "Your app reads private data without a notice or asking first.\nGoogle checks this for access to:\n- contacts\n- text messages (SMS)\n- call history\n- accounts on the phone\n- all files",
       "fix": "Show a clear notice in the app before you collect this data.\nThen get a clear yes from each person."
+    },
+    "APPLE-1.2-UGC-24H-ACTION": {
+      "from": "874e0ceb",
+      "title": "User posts without ways to stop abuse",
+      "problem": "",
+      "fix": ""
     },
     "APPLE-2.1-CLOUD-NOT-IN-PRODUCTION": {
       "from": "78207df9",
@@ -553,6 +559,12 @@
       "title": "Donation link that skips Google Play billing",
       "problem": "Your app links to donations outside Play billing.\nThink Open Collective, Ko-fi, Patreon, Buy Me a Coffee or GitHub Sponsors.\nLiberapay and PayPal donate pages count too.\nOnly tax exempt charities may skip it, not trade groups or informal projects.\nEverything else counts as paying for digital goods.\nOpen source apps get hit most, like AnkiDroid in August 2026.",
       "fix": "Pick one of these:\n- Remove the donation link from your Play version.\n- Sell it through Play billing as a one time purchase.\n- For a tax exempt charity, add proof to review notes.\nA separate Play build is enough to remove it (build flavor).\nDon't argue in your appeal. Google already said trade groups don't qualify."
+    },
+    "GOOGLE-PLAY-CHARGEBACK-LIABILITY": {
+      "from": "9a021da7",
+      "title": "Card disputes left unanswered in Play billing",
+      "problem": "For orders after 3 August 2026, you pay for card disputes, not Google.\nEach dispute costs you:\n- The price minus Google's service fee.\n- A card network fee, often USD 15 to 25 per dispute.\nYour app ignores Google's dispute alerts and refund review tool.\nSo you lose every fake dispute by default.\nThis isn't a rejection. It's a money and fraud risk on your account.",
+      "fix": "Ask your developer to answer Google's dispute alerts.\n- Turn on Google's live alerts (real-time developer notifications).\n- Watch for the pending refund review alert.\n- Reply through Google's refund review tool within 24 hours.\n- Say whether you want the refund given.\n- Send proof of how the purchase was used.\nThis lets Google fight unfair disputes.\nCount dispute fees in your money plans."
     },
     "APPLE-2.3.6-SOCIAL-MEDIA-DECLARATION": {
       "from": "d9492953",
@@ -1071,6 +1083,11 @@
       "title": "Block under 16s from social apps",
       "summary": "The rules are due by the end of 2026. They start in spring 2027, tracked as 1 March 2027. Social apps where users reach each other must block anyone under 16. AI romance chatbots must block anyone under 18. For 16 and 17 year olds, social apps must:\n- Turn off livestreaming by default.\n- Turn off contact from strangers by default.\n- Turn off autoplay by default.\n- Turn off personalised feeds by default.\n- Stop notifications from midnight to 6am."
     },
+    "EU-AI-ACT-MARKING-RETROFIT-2026": {
+      "from": "ec3a0471",
+      "title": "Older AI generators must mark their output",
+      "summary": ""
+    },
     "EU-PRODUCT-LIABILITY-SOFTWARE-2026": {
       "from": "b82c7e3f",
       "title": "Apps and updates count as products",
@@ -1201,6 +1218,11 @@
       "title": "Honour new privacy rights for users",
       "summary": "From 1 January 2027, let people:\n- See the data you hold on them.\n- Fix it.\n- Delete it.\n- Take a copy with them.\n- Opt out of having it sold.\n- Opt out of targeted ads and profiling."
     },
+    "APPLE-IPHONE-DUO-LAUNCH": {
+      "from": "d2fb89b7",
+      "title": "Get ready for the foldable iPhone Duo",
+      "summary": ""
+    },
     "APPLE-MULTISEAT-VOLUME-PURCHASING": {
       "from": "6828ef92",
       "title": "Choose who can buy group subscription seats",
@@ -1281,10 +1303,25 @@
       "title": "Apple changes prices in five countries",
       "summary": "On 3 December 2026, Apple updates app and in-app purchase prices there. Botswana now has 14 percent VAT, and Rwanda 18 percent. Apple now collects that tax.\nIs one of these five your base store? Its price stays as you set it. Apple then adjusts your other auto-priced stores to match it.\nAuto-renewing subscriptions don't change. Nor do stores where you set prices by hand.\nCheck prices written into screenshots, promo text or app text for these stores."
     },
+    "APPLE-CN-APP-COMPLIANCE-2027": {
+      "from": "93ba6e48",
+      "title": "China App Store apps need two declarations",
+      "summary": ""
+    },
     "GOOGLE-PLAY-CALL-LOG-VERIFICATION-2027": {
       "from": "b0acbe01",
       "title": "Stop using call logs to verify accounts",
       "summary": "From 27 January 2027, don't use call log access (READ_CALL_LOG) for phone call verification. Until then, Google still allows it. Verify accounts with one of these instead:\n- The Digital Credentials API, directly or through a provider built on it\n- The SMS Retriever API\n- The SMS User Consent API, added 29 October 2026"
+    },
+    "KR-PIPA-SELF-TRANSMISSION-2027": {
+      "from": "266cc1a5",
+      "title": "Big firms must send people their data",
+      "summary": ""
+    },
+    "ANDROID-DEVELOPER-VERIFICATION-GLOBAL-2027": {
+      "from": "e93d9e67",
+      "title": "Android developer checks start rolling out worldwide",
+      "summary": ""
     }
   },
   "checklist": {

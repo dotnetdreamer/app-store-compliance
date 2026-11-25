@@ -32,7 +32,7 @@ An out-of-date entry breaks nothing. The app shows the playbook's own words for 
    python3 scripts/plain-language.py --verbose
    ```
 
-   Only new or changed entries go to the AI, so a run after a small change takes a minute or two. An entry that still fails the meaning check after three tries is left out and listed at the end. The app shows the playbook's own words for it.
+   Only new or changed entries go to the AI, so a run after a small change takes a minute or two. An entry that still fails the meaning check after three tries gets a plain title only if it's a rule or a deadline (see below), or is left out and listed at the end. The app shows the playbook's own words where the file has none.
 
 4. Check the result, then read what changed with `git diff data/plain-language.json`:
 
@@ -50,6 +50,8 @@ Shorter words must not mean less, so a plain version is kept only when it passes
 - A second AI pass lists any condition, exception, limit or group of people the plain version lost or changed, such as "when offered" or "at the same time". Its answer has to be a list of sentences. Any other answer is asked for again and never counts as a pass.
 
 A version that fails is written again with the problems named.
+
+Some rules and deadlines are too long to say in a few short lines without losing a condition. When a rule or a deadline still fails after three tries, the script writes a plain title for it alone, in rounds of its own: the title may leave details out, but it must not say anything the original doesn't, so a date or amount the original lacks fails in code, and a second AI pass lists anything else it gets wrong. The file keeps that entry with its other fields empty, and the app shows the plain title over the playbook's own words. `--status` counts these as plain titles only. App versions from before 2026-11-25 skip such an entry and show the playbook's words.
 
 To check the meaning of every entry again, not only new ones, run this. It takes about 30 minutes for the whole playbook, so use it after changing the meaning checks:
 

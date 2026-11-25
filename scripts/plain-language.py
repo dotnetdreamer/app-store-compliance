@@ -64,6 +64,10 @@ FIELDS = {"rules": ["title", "problem", "fix"], "deadlines": ["title", "summary"
 BATCH = {"rules": 10, "deadlines": 10, "checklist": 15, "sections": 10, "groups": 20}
 AT_ONCE = 4
 ROUNDS = 3
+# A rule or deadline too long to say in a few plain lines without losing a
+# condition keeps a plain title only, checked on its own, and the app shows the
+# playbook's words under it. Its other fields are empty in the file.
+TITLE_ONLY = ("rules", "deadlines")
 # The app leaves out a title longer than 120 characters and text longer than 600
 # (its plain.ts). A title here stays well under that; text can use all of it.
 TITLE_MAX = 80
@@ -429,6 +433,21 @@ def lost_facts(original, plain):
     return out
 
 
+def added_facts(original, title):
+    """The dates and amounts a title has that its original does not."""
+    return [problem.replace(" is missing or has another unit", " is not in the original").replace(" is missing", " is not in the original")
+            for problem in lost_facts(title, original)]
+
+
+def is_title_only(kind, entry):
+    """An entry with a plain title and nothing else, which only rules and deadlines may have."""
+    if kind not in TITLE_ONLY or not isinstance(entry, dict):
+        return False
+    title = entry.get("title")
+    rest = [entry.get(field) for field in FIELDS[kind] if field != "title"]
+    return isinstance(title, str) and bool(title.strip()) and all(value is None or (isinstance(value, str) and not value.strip()) for value in rest)
+
+
 def read_verdict(value):
     """The AI's verdict on one entry: its problems, [] when the meaning holds, None when it is not a list of sentences."""
     if not isinstance(value, list):
@@ -468,12 +487,17 @@ def normalize(value):
     return "\n".join(line for line in (re.sub(r"[ \t]+", " ", raw).strip() for raw in value.split("\n")) if line)
 
 
-def style_problems(kind, entry):
-    """What breaks the house style, said so the writer can fix it."""
+def style_problems(kind, entry, title_only=False):
+    """What breaks the house style, said so the writer can fix it. A title-only entry is judged on its title, and must have nothing else."""
     if not isinstance(entry, dict):
         return ["missing"]
     out = []
-    for field in FIELDS[kind]:
+    if title_only:
+        if kind not in TITLE_ONLY:
+            return [f"{kind} can't have a title only"]
+        if not is_title_only(kind, entry):
+            out.append("a title-only entry has a title and nothing else")
+    for field in (["title"] if title_only else FIELDS[kind]):
         value = normalize(entry.get(field)) if isinstance(entry.get(field), str) else ""
         if not value:
             if kind == "sections" and field == "intro":
@@ -573,6 +597,26 @@ In plain words:
 {"g1":{"title":"Your store page"}}""",
 }
 
+TITLE_PROMPT = {
+    "rules": """These rejection rules are too long to say in a few short lines without losing a condition, so the app shows them in the playbook's own words under a plain title. For each id, return:
+- "title": what gets the app turned down, 7 words or fewer, in everyday words.
+The title only names the problem, so it may leave details out. It must not say anything the original doesn't, and it must not make something sound like it applies to every app when the original limits it.""",
+    "deadlines": """These deadlines are too long to say in a few short lines without losing a condition, so the app shows them in the playbook's own words under a plain title. For each id, return:
+- "title": what changes for apps, 7 words or fewer, in everyday words. Not the law's name.
+The title only names what changes, so it may leave details out. It must not say anything the original doesn't, and it must not make something sound like it applies to every app, everyone or everywhere when the original limits it.""",
+}
+
+TITLE_CHECK_SYSTEM = """You check plain-English titles of App Store Compliance Playbook entries against the originals. The app shows each title above the original's own words, so a title may leave details out.
+
+For each id, list every way the title is wrong:
+- it says something the original doesn't, or names a different subject
+- a date, number, amount, store, place or group of people in it is not the original's
+- it makes something sound like it applies to every app, everyone or everywhere when the original limits it
+- it makes something sound allowed or optional when the original requires it, or the other way round
+Do not list details the title leaves out, technical names left out, or wording and tone.
+
+Reply with one JSON object and nothing else: {"<id>": ["what is wrong", ...]}, with an empty list for a title that is right."""
+
 CHECK_SYSTEM = """You check plain-English versions of App Store Compliance Playbook entries against the originals. People will act on the plain version alone, so it has to mean the same.
 
 For each id, list every way the plain version changes the meaning:
@@ -599,6 +643,15 @@ def write_prompt(kind, jobs, feedback):
     shape = ", ".join(f'"{field}": "..."' for field in FIELDS[kind])
     noun = "boxes" if kind == "checklist" else kind
     return f"{KIND_PROMPT[kind]}\n\nThe {noun}, one JSON object a line:\n" + "\n".join(lines) + fix + f'\n\nReply as {{"<id>": {{{shape}}}}} with every id above.'
+
+
+def title_prompt(kind, jobs, feedback):
+    lines = [json.dumps({"id": job["id"], **job["original"]}, ensure_ascii=False) for job in jobs]
+    notes = [job for job in jobs if job["id"] in feedback]
+    fix = ""
+    if notes:
+        fix = "\n\nAn earlier title for these was wrong. Fix each problem:\n" + "\n".join(f"- {job['id']}: {'; '.join(feedback[job['id']])}" for job in notes)
+    return f"{TITLE_PROMPT[kind]}\n\nThe {kind}, one JSON object a line:\n" + "\n".join(lines) + fix + '\n\nReply as {"<id>": {"title": "..."}} with every id above.'
 
 
 def check_prompt(jobs, entries):
@@ -710,9 +763,9 @@ class Run:
         if job["from"] and entry.get("from") != job["from"]:
             return False
         needed = [field for field in FIELDS[job["kind"]] if not (job["kind"] == "sections" and field == "intro")]
-        return all(isinstance(entry.get(field), str) and entry[field] for field in needed)
+        return all(isinstance(entry.get(field), str) and entry[field] for field in needed) or is_title_only(job["kind"], entry)
 
-    def check_meaning(self, jobs, entries):
+    def check_meaning(self, jobs, entries, system=CHECK_SYSTEM):
         """The AI's reading of each version: its problems, [] when the meaning holds, or None when, asked three times, it never answered that entry with a list of sentences."""
         out, ask = {}, list(jobs)
         for attempt in range(1, 4):
@@ -720,7 +773,7 @@ class Run:
                 break
             verdicts = {}
             try:
-                verdicts = read_reply(ask_claude(CHECK_SYSTEM, check_prompt(ask, entries), self.args.model))
+                verdicts = read_reply(ask_claude(system, check_prompt(ask, entries), self.args.model))
             except Exception as error:  # noqa: BLE001 - an unreadable answer is asked again
                 say(f"  meaning check: {error}")
             again = []
@@ -776,6 +829,47 @@ class Run:
                 else:
                     kept[job["id"]] = current[job["id"]]
         left = {job["id"]: feedback.get(job["id"], ["no answer"]) for job in jobs if job["id"] not in kept}
+        if kind in TITLE_ONLY and left:
+            titled, left = self.titles(kind, [job for job in jobs if job["id"] in left], left)
+            kept.update(titled)
+        return kept, left
+
+    def titles(self, kind, jobs, left):
+        """A plain title alone, for entries whose full version kept failing: written, styled and checked the same way, in its own rounds."""
+        kept, feedback = {}, {}
+        for round_number in range(1, ROUNDS + 1):
+            to_write = [job for job in jobs if job["id"] not in kept]
+            if not to_write:
+                break
+            current = {}
+            try:
+                reply = read_reply(ask_claude(WRITE_SYSTEM, title_prompt(kind, to_write, feedback), self.args.model))
+                for job in to_write:
+                    raw = reply.get(job["id"])
+                    entry = {"title": normalize(raw.get("title") or "")} if isinstance(raw, dict) and isinstance(raw.get("title"), str) else None
+                    problems = style_problems(kind, entry, title_only=True)
+                    if problems:
+                        feedback[job["id"]] = problems
+                    else:
+                        current[job["id"]] = entry
+            except Exception as error:  # noqa: BLE001 - the round is tried again
+                say(f"  {kind} titles: {error}")
+            to_check = [job for job in to_write if job["id"] in current]
+            if not to_check:
+                continue
+            verdicts = self.check_meaning(to_check, current, TITLE_CHECK_SYSTEM)
+            for job in to_check:
+                said = verdicts.get(job["id"])
+                problems = added_facts(original_text(job), current[job["id"]]["title"]) + (said if said is not None else ["the title check gave no readable answer for this entry"])
+                if self.args.verbose and problems:
+                    say(f"  {kind} {job['id']} title, round {round_number}: {'; '.join(problems)}")
+                if problems:
+                    feedback[job["id"]] = problems
+                else:
+                    kept[job["id"]] = current[job["id"]]
+        left = {job_id: problems for job_id, problems in left.items() if job_id not in kept}
+        if self.args.verbose and kept:
+            say(f"  {kind}: a plain title only for {', '.join(kept)}")
         return kept, left
 
     def main(self):
@@ -786,7 +880,9 @@ class Run:
             waiting = [job for job in self.jobs[kind] if not self.fresh(job)]
             chosen = (self.jobs[kind] if args.recheck else waiting)[: args.limit]
             todo += chosen
-            print(f"{kind}: {len(self.jobs[kind])} in the playbook, {len(self.jobs[kind]) - len(waiting)} in plain words, {len(waiting)} missing or out of date")
+            titled = sum(1 for job in self.jobs[kind] if self.fresh(job) and is_title_only(kind, self.existing[kind].get(job["id"])))
+            only = f" ({titled} with a plain title only)" if titled else ""
+            print(f"{kind}: {len(self.jobs[kind])} in the playbook, {len(self.jobs[kind]) - len(waiting)} in plain words{only}, {len(waiting)} missing or out of date")
             if args.status and waiting:
                 print("  " + ", ".join(job["id"] for job in waiting))
         if args.status:
@@ -823,7 +919,8 @@ class Run:
             "version": 1,
             "about": "The rules, deadlines and checklist boxes of this playbook in everyday words, for people who are not developers or lawyers, "
                      "written with scripts/plain-language.py and each one checked against its original for meaning. \"from\" is a fingerprint of "
-                     "the original an entry was written from: when the original changes, apps show the original until this file is written again.",
+                     "the original an entry was written from: when the original changes, apps show the original until this file is written again. "
+                     "A rule or deadline too long to shorten without losing a condition has a plain title only, and its other fields are empty.",
         }
         total = 0
         for kind in KINDS:

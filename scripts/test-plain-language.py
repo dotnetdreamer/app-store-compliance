@@ -77,6 +77,34 @@ class Style(unittest.TestCase):
         self.assertEqual(plain.normalize("Line  one.\n\n-  item   two\n"), "Line one.\n- item two")
 
 
+class TitleOnly(unittest.TestCase):
+    """A rule or deadline too long to shorten keeps a plain title only, and the app shows the playbook's words under it."""
+
+    def test_only_rules_and_deadlines_with_a_title_and_nothing_else(self):
+        self.assertTrue(plain.is_title_only("deadlines", {"from": "x", "title": "Mark AI-made content", "summary": ""}))
+        self.assertTrue(plain.is_title_only("rules", {"from": "x", "title": "No way to report posts", "problem": "", "fix": ""}))
+        self.assertTrue(plain.is_title_only("rules", {"title": "No way to report posts"}))
+        self.assertFalse(plain.is_title_only("rules", {"title": "No way to report posts", "problem": "x.", "fix": ""}), "half an entry is neither")
+        self.assertFalse(plain.is_title_only("deadlines", {"title": "", "summary": ""}))
+        self.assertFalse(plain.is_title_only("checklist", {"text": "A box."}))
+        self.assertFalse(plain.is_title_only("sections", {"title": "Start here", "intro": ""}), "a section with no intro is a whole section")
+
+    def test_the_title_is_styled_and_the_rest_must_be_empty(self):
+        self.assertEqual(plain.style_problems("deadlines", {"title": "Mark AI-made content", "summary": ""}, title_only=True), [])
+        self.assertTrue(plain.style_problems("deadlines", {"title": "Mark AI-made content", "summary": ""}), "not a whole entry")
+        self.assertTrue(plain.style_problems("deadlines", {"title": "A title that is far too long to read at once", "summary": ""}, title_only=True))
+        self.assertTrue(plain.style_problems("deadlines", {"title": "Mark AI-made content", "summary": "Some text."}, title_only=True))
+        self.assertTrue(plain.style_problems("checklist", {"text": "A box."}, title_only=True))
+        self.assertTrue(plain.style_problems("rules", {"title": "Metadata rules changed", "problem": "", "fix": ""}, title_only=True), "jargon in a title")
+
+    def test_a_title_may_leave_dates_out_but_not_add_them(self):
+        original = "From 31 January 2027 every app on the China mainland storefront answers both declarations."
+        self.assertEqual(plain.added_facts(original, "Answer China's AI and security questions"), [])
+        self.assertEqual(plain.added_facts(original, "Answer China's questions by 31 January 2027"), [])
+        self.assertEqual(plain.added_facts(original, "Answer China's questions by 31 March 2027"), ["the date 31 March 2027 is not in the original"])
+        self.assertEqual(plain.added_facts("A fee of USD 25.", "Pay 50 dollars"), ["the amount 50 dollar is not in the original"])
+
+
 class MeaningChecks(unittest.TestCase):
     def amounts(self, value):
         return [f"{number} {unit}" for number, unit in plain.amounts_of(value)]
@@ -139,7 +167,7 @@ class TheFile(unittest.TestCase):
             entries = data.get(kind, {})
             self.assertIsInstance(entries, dict, kind)
             for entry_id, entry in entries.items():
-                self.assertEqual(plain.style_problems(kind, entry), [], f"{kind} {entry_id}")
+                self.assertEqual(plain.style_problems(kind, entry, title_only=plain.is_title_only(kind, entry)), [], f"{kind} {entry_id}")
                 if kind == "rules":
                     if entry_id not in rules or entry.get("from") != plain.rule_fingerprint(rules[entry_id]):
                         stale.append(f"{kind} {entry_id}")
