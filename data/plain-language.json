@@ -745,6 +745,18 @@
       "title": "Possible Allow button before permission alert",
       "problem": "Apple rejects screens that use quick taps to sway permission choices.\nOur check flags buttons titled Allow or Allow plus a noun.\nIt looks in Apple code files that also ask permission.\nSo a match is possible, not proof.\nIt skips comments and Android files. Blind spots:\n- Permission asked in another file\n- SwiftUI buttons labelled by a separate Text view\n- Odd comment markers that hide or expose buttons\nA person checks for Close, Cancel, rewards or alert pictures.",
       "fix": "Give the screen before Apple's alert one button, Continue or Next.\n- It opens Apple's permission alert.\n- Offer no reward.\n- Show no picture of the alert.\n- Leave out Close or Cancel.\n- Exception: keep them if the screen collects legally required consent.\nWhere you can, let people use the app without the permission.\nA Settings switch or plain label saying Allow is fine."
+    },
+    "GOOGLE-ADAPTIVE-TIER3-ORIENTATION-LOCK": {
+      "from": "c5b389b5",
+      "title": "Locked rotation or resizing on folding phones",
+      "problem": "",
+      "fix": ""
+    },
+    "GOOGLE-AGENTIC-DIGITAL-PURCHASE": {
+      "from": "f9fa8f55",
+      "title": "Digital purchase by AI skips Google payments",
+      "problem": "",
+      "fix": ""
     }
   },
   "deadlines": {
@@ -1322,6 +1334,16 @@
       "from": "e93d9e67",
       "title": "Android developer checks start rolling out worldwide",
       "summary": ""
+    },
+    "GOOGLE-PLAY-ADAPTIVE-TIER3-2027": {
+      "from": "0fe2c85e",
+      "title": "Play releases need foldable support and screenshots",
+      "summary": ""
+    },
+    "GOOGLE-PLAY-TARGET-API-37-2027": {
+      "from": "2e1d46b9",
+      "title": "Apps must target Android 17",
+      "summary": "From August 2027, new apps and updates must target Android 17 (API level 37).\n- Google hasn't given the exact day.\n- On large screens, you can no longer block rotating or resizing.\n- This is separate from the API 36 rule for 31 August 2026."
     }
   },
   "checklist": {
@@ -1519,6 +1541,9 @@
     },
     "e009bba5": {
       "text": "Your app targets the Android version Google currently requires (API level)."
+    },
+    "666aac6c": {
+      "text": "From April 2027, your app fits foldables (adaptive Tier 3).\n- Fills the screen and supports split screen.\n- Keeps its place when rotated, folded or resized.\n- Besides phone shots: 1:1 and 4:3 unfolded inner screen.\n- Add a 10:16 upright folded outer screen shot.\n- Games: add shots in main direction from April 2027.\n- Games: Tier 3 (Ready) from August 2027."
     },
     "6629c11a": {
       "text": "If your personal developer account is new, your closed test is done.\n- At least 12 testers took part.\n- It ran for 14 days in a row."
